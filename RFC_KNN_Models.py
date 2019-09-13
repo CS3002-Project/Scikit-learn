@@ -41,25 +41,13 @@ def eval_model(clf, X_test, y_test):
     pred_clf = clf.predict(X_test)
     print(classification_report(y_test, pred_clf))
     
-
-clf = KNeighborsClassifier()
-rfc = RandomForestClassifier(n_estimators = 20)
-
 X_train, X_test = standardise_dataset(X_train, X_test)
-
-clf.fit(X_train,y_train)
-pred_clf = clf.predict(X_test)
-print(classification_report(y_test, pred_clf))
 
 knn_clf = train_model(KNeighborsClassifier(), X_train, y_train)
 eval_model(knn_clf, X_test, y_test)
 
 rf_clf = train_model(RandomForestClassifier(n_estimators = 20), X_train, y_train)
 eval_model(rf_clf, X_test, y_test)
-
-# rfc.fit(X_train,y_train)
-# pred_rfc = rfc.predict(X_test)
-# print(classification_report(y_test, pred_rfc))
 
 
 
