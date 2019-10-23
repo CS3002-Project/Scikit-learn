@@ -1,0 +1,13 @@
+.DS_Store
+.idea/
+.ipynb_checkpoints/
+__pycache__/
+*.zip
+data/
+extracted/
+*.txt
+*.p
+*.json
+*.dot
+*.png
+*.log
