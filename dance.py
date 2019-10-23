@@ -10,10 +10,10 @@ def read_data(data_dir):
     x_array_train, y_array_train = [], []
     x_array_dev, y_array_dev = [], []
     for file_name in os.listdir(data_dir):
-        if file_name.endswith(".tsv"):
+        if file_name.endswith(".csv"):
             x_sample = []
             label = label_map(file_name)
-            x_raw_data = utils.read_csv(os.path.join(data_dir, file_name), load_header=True, delimiter="\t")
+            x_raw_data = utils.read_csv(os.path.join(data_dir, file_name), load_header=True, delimiter=",")
             for row in x_raw_data:
                 x_snapshot = np.array([float(reading) for reading in row[2:]])
                 x_sample.append(x_snapshot)
