@@ -11,13 +11,14 @@ reverse_label_map = {
         2: "handmotor",
         3: "rocket",
         4: "tapshoulder",
-        5: "hunchback"
+        5: "hunchback",
+        99: "idle",
 }
 
 
 def run(test_dir, model_file):
-    window_size = 10  # change window size need to retrain the model
-    max_consecutive_agrees = 10
+    window_size = 8  # change window size need to retrain the model
+    max_consecutive_agrees = 5
 
     model = load(model_file)
     for file_name in os.listdir(test_dir):
@@ -33,6 +34,7 @@ def run(test_dir, model_file):
             if len(reading_buffer) == window_size:
                 feature_vector = np.concatenate(reading_buffer).reshape(1, -1)
                 prediction = model.predict(feature_vector)[0]
+                reading_buffer.clear()
                 if current_prediction is None or prediction == current_prediction:
                     consecutive_agrees += 1
                     if consecutive_agrees == max_consecutive_agrees:
@@ -41,7 +43,6 @@ def run(test_dir, model_file):
                 else:
                     consecutive_agrees = 0
                 current_prediction = prediction
-                reading_buffer.popleft()
 
 
 if __name__ == "__main__":

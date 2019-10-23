@@ -29,7 +29,8 @@ def label_map(file_name):
         "handmotor": 2,
         "rocket": 3,
         "tapshoulder": 4,
-        "hunchback": 5
+        "hunchback": 5,
+        "idle": 99,
     }
     for k, v in name_map.items():
         if k in file_name:
