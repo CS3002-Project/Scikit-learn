@@ -2,6 +2,7 @@ import numpy as np
 import os
 import utils
 from collections import deque
+from joblib import load
 
 
 reverse_label_map = {
@@ -18,7 +19,7 @@ def run(test_dir, model_file):
     window_size = 10  # change window size need to retrain the model
     max_consecutive_agrees = 10
 
-    model = utils.load_from_pickle(model_file)
+    model = load(model_file)
     for file_name in os.listdir(test_dir):
         reading_buffer = deque()
         file_path = os.path.join(test_dir, file_name)
@@ -45,5 +46,5 @@ def run(test_dir, model_file):
 
 if __name__ == "__main__":
     TEST_DIR = "test"
-    MODEL_FILE = "rf.p"
+    MODEL_FILE = "rf.joblib"
     run(TEST_DIR, MODEL_FILE)

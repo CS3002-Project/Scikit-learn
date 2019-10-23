@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.svm import SVC
 from tqdm import tqdm
+from joblib import dump, load
 
 
 def read_data(input_path):
@@ -39,8 +40,7 @@ def train_rf(X_train, y_train, X_dev, y_dev):
     y_pred_rfc = rfc.predict(X_dev)
     eval_model("rf", y_dev, y_pred_rfc)
 
-    with open("rf.p", "wb") as f:
-        pickle.dump(rfc, f)
+    dump(rfc, 'rf.joblib')
 
 
 def train_svm_seq(X_train, y_train, X_dev, y_dev, window_size=5):
