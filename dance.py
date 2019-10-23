@@ -28,7 +28,7 @@ def read_data(data_dir):
 
 
 def run_svm_seq(x_array_train, y_array_train, x_array_dev, y_array_dev):
-    window_size = 10
+    window_size = 8
     x_train, y_train, x_dev, y_dev = [], [], [], []
     for i in range(len(x_array_train)):
         x_window_train, y_window_train, x_window_dev, y_window_dev \
