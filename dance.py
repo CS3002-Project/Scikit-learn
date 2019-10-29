@@ -28,14 +28,13 @@ def read_data(data_dir):
 
 
 def run_svm_seq(x_array_train, y_array_train, x_array_dev, y_array_dev):
-    window_size = 8
+    window_size = 24
     x_train, y_train, x_dev, y_dev = [], [], [], []
     for i in range(len(x_array_train)):
         x_window_train, y_window_train, x_window_dev, y_window_dev \
             = build_window_data(x_array_train[i], y_array_train[i], x_array_dev[i], y_array_dev[i], window_size)
-        x_window_train = [np.concatenate(x) for x in x_window_train]
-        x_window_dev = [np.concatenate(x) for x in x_window_dev]
-
+        # x_window_train = [np.concatenate(x) for x in x_window_train]
+        # x_window_dev = [np.concatenate(x) for x in x_window_dev]
         x_train += x_window_train
         y_train += y_window_train
         x_dev += x_window_dev

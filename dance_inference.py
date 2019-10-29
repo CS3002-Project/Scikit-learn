@@ -12,12 +12,12 @@ reverse_label_map = {
         3: "rocket",
         4: "tapshoulder",
         5: "hunchback",
-        99: "idle",
+        # 99: "idle",
 }
 
 
 def run(test_dir, model_file):
-    window_size = 8  # change window size need to retrain the model
+    window_size = 18  # change window size need to retrain the model
     max_consecutive_agrees = 5
 
     model = load(model_file)
