@@ -83,6 +83,19 @@ def train_rf_extract_window(X_train, y_train, X_dev, y_dev, window_size=5):
     X_dev_extract_window_concat = [np.concatenate(x) for x in X_dev_extract_window]
     train_rf(X_train_extract_window_concat, y_train_extract_window, X_dev_extract_window_concat, y_dev_extract_window)
 
+# Returns an appended list of feature_extracted values
+# E.g [Mean1, Mean2, ...., Min1, Min2, ....., Max1, Max2, ...., SD1, ....]
+
+
+def feature_extraction(window_rows):
+    feature_extracted_row = []
+    feature_extracted_row.extend(window_rows.mean(0))
+    feature_extracted_row.extend(window_rows.min(0))
+    feature_extracted_row.extend(window_rows.max(0))
+    feature_extracted_row.extend(window_rows.std(0))
+
+    return feature_extracted_row
+
 
 def build_window_extract_data(X_window_train, X_window_dev):
     X_window_train_extracted, X_window_train_dev = [], []
@@ -108,12 +121,24 @@ def build_window_extract_data(X_window_train, X_window_dev):
 def build_window_data(X_train, y_train, X_dev, y_dev, window_size):
     train_size, dev_size = len(X_train), len(X_dev)
     X_window_train, y_window_train = [], []
+    # flag = 0
     for i in range(window_size-1, train_size):
-        X_window_train.append(X_train[i + 1 - window_size: i + 1])
+        feature_extracted_row = feature_extraction(X_train[i + 1 - window_size: i + 1])
+        X_window_train.append(feature_extracted_row)
+        # X_window_train.append(X_train[i + 1 - window_size: i + 1])
+        # print(type(X_train[i + 1 - window_size: i + 1]))
+        # print(X_train[i + 1 - window_size: i + 1])
+        # print(X_train[i + 1 - window_size: i + 1].mean(0))
+        # print(X_train[i + 1 - window_size: i + 1].min(0))
+        # print(X_train[i + 1 - window_size: i + 1].max(0))
+        # print(X_train[i + 1 - window_size: i + 1].std(0))
+        #sys.exit()
         y_window_train.append(y_train[i])
     X_window_dev, y_window_dev = [], []
     for i in range(window_size - 1, dev_size):
-        X_window_dev.append(X_dev[i + 1 - window_size: i + 1])
+        feature_extracted_row = feature_extraction(X_dev[i + 1 - window_size: i + 1])
+        X_window_dev.append(feature_extracted_row)
+        # X_window_dev.append(X_dev[i + 1 - window_size: i + 1])
         y_window_dev.append(y_dev[i])
     return X_window_train, y_window_train, X_window_dev, y_window_dev
 
