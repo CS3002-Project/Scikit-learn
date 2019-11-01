@@ -30,6 +30,10 @@ def label_map(file_name):
         "rocket": 3,
         "tapshoulder": 4,
         "hunchback": 5,
+        "james": 6,
+        "chicken": 7,
+        "movingsalute": 8,
+        "whip": 9
         # "idle": 99,
     }
     for k, v in name_map.items():
