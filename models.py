@@ -8,6 +8,7 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn.svm import SVC
 from tqdm import tqdm
 from joblib import dump, load
+import itertools
 
 
 def read_data(input_path):
@@ -89,6 +90,7 @@ def train_rf_extract_window(X_train, y_train, X_dev, y_dev, window_size=5):
 
 def feature_extraction(window_rows):
     feature_extracted_row = []
+    feature_extracted_row.extend(list(itertools.chain.from_iterable(window_rows)))
     feature_extracted_row.extend(window_rows.mean(0))
     feature_extracted_row.extend(window_rows.min(0))
     feature_extracted_row.extend(window_rows.max(0))
