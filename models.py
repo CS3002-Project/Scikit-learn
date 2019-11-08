@@ -1,14 +1,14 @@
 from constants import *
 import json
-import numpy as np
 import pickle
 from preprocessing import *
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.svm import SVC
 from tqdm import tqdm
-from joblib import dump, load
-import itertools
+from joblib import dump
+from sklearn.metrics import mean_squared_error
+from collections import deque
 
 
 def read_data(input_path):
@@ -36,112 +36,84 @@ def train_svm(X_train, y_train, X_dev, y_dev):
 
 
 def train_rf(X_train, y_train, X_dev, y_dev):
-    rfc = RandomForestClassifier(n_estimators=50)
+    rfc = RandomForestClassifier(n_estimators=100, max_depth=10)
     rfc.fit(X_train, y_train)
     y_pred_rfc = rfc.predict(X_dev)
     eval_model("rf", y_dev, y_pred_rfc)
-
     dump(rfc, 'rf.joblib')
-
-
-def train_svm_seq(X_train, y_train, X_dev, y_dev, window_size=5):
-    X_window_train, y_window_train, X_window_dev, y_window_dev \
-        = build_window_data(X_train, y_train, X_dev, y_dev, window_size)
-    X_window_train = [np.concatenate(x) for x in X_window_train]
-    X_window_dev = [np.concatenate(x) for x in X_window_dev]
-    train_svm(X_window_train, y_window_train, X_window_dev, y_window_dev)
-
-
-def train_svm_extract(X_train, y_train, X_dev, y_dev, window_size=5):
-    X_window_train, y_window_train, X_window_dev, y_window_dev \
-        = build_window_data(X_train, y_train, X_dev, y_dev, window_size)
-    X_window_train_extracted, X_window_dev_extracted = build_window_extract_data(X_window_train, X_window_dev)
-    train_svm(X_window_train_extracted, y_window_train, X_window_dev_extracted, y_window_dev)
-
-
-def train_rf_seq(X_train, y_train, X_dev, y_dev, window_size=5):
-    X_window_train, y_window_train, X_window_dev, y_window_dev \
-        = build_window_data(X_train, y_train, X_dev, y_dev, window_size)
-    X_window_train = [np.concatenate(x) for x in X_window_train]
-    X_window_dev = [np.concatenate(x) for x in X_window_dev]
-    train_rf(X_window_train, y_window_train, X_window_dev, y_window_dev)
-
-
-def train_rf_extract(X_train, y_train, X_dev, y_dev, window_size=5):
-    X_window_train, y_window_train, X_window_dev, y_window_dev \
-        = build_window_data(X_train, y_train, X_dev, y_dev, window_size)
-    X_window_train_extracted, X_window_dev_extracted = build_window_extract_data(X_window_train, X_window_dev)
-    train_rf(X_window_train_extracted, y_window_train, X_window_dev_extracted, y_window_dev)
-
-
-def train_rf_extract_window(X_train, y_train, X_dev, y_dev, window_size=5):
-    X_window_train, y_window_train, X_window_dev, y_window_dev \
-        = build_window_data(X_train, y_train, X_dev, y_dev, window_size)
-    X_train_extract, X_dev_extract = build_window_extract_data(X_window_train, X_window_dev)
-    X_train_extract_window, y_train_extract_window, X_dev_extract_window, y_dev_extract_window = \
-        build_window_data(X_train_extract, y_window_train, X_dev_extract, y_window_dev, window_size)
-    X_train_extract_window_concat = [np.concatenate(x) for x in X_train_extract_window]
-    X_dev_extract_window_concat = [np.concatenate(x) for x in X_dev_extract_window]
-    train_rf(X_train_extract_window_concat, y_train_extract_window, X_dev_extract_window_concat, y_dev_extract_window)
 
 # Returns an appended list of feature_extracted values
 # E.g [Mean1, Mean2, ...., Min1, Min2, ....., Max1, Max2, ...., SD1, ....]
 
 
+def extract_poly_fit(channel_features):
+    poly_coeff = np.polyfit(range(len(channel_features)), channel_features, 1)
+    return poly_coeff.flatten()
+
+
+def extract_skewness(channel_features):
+    skewness = skew(channel_features, axis=0)
+    return skewness
+
+
+def extract_average_amplitude_change(channel_features):
+    amplitude_changes = []
+    for i in range(0, len(channel_features)-1):
+        amplitude_changes.append(np.abs(channel_features[i+1]-channel_features[i]))
+    return np.mean(amplitude_changes, axis=0)
+
+
+def extract_average_moving_rms(channel_features):
+    moving_rms = []
+    for i in range(0, len(channel_features)-1):
+        moving_rms.append(mean_squared_error(channel_features[i+1],
+                                             channel_features[i], multioutput='raw_values'))
+    return np.mean(moving_rms, axis=0)
+
+
 def feature_extraction(window_rows):
     feature_extracted_row = []
-    feature_extracted_row.extend(list(itertools.chain.from_iterable(window_rows)))
+    feature_extracted_row.extend(window_rows[0])
     feature_extracted_row.extend(window_rows.mean(0))
+    feature_extracted_row.extend(extract_average_moving_rms(window_rows))
     feature_extracted_row.extend(window_rows.min(0))
     feature_extracted_row.extend(window_rows.max(0))
     feature_extracted_row.extend(window_rows.std(0))
+    # feature_extracted_row.extend(extract_poly_fit(window_rows))
+    # feature_extracted_row.extend(extract_skewness(window_rows))
+    # feature_extracted_row.extend(extract_average_amplitude_change(window_rows))
 
     return feature_extracted_row
 
 
-def build_window_extract_data(X_window_train, X_window_dev):
-    X_window_train_extracted, X_window_train_dev = [], []
-    for window in X_window_train:
-        mean = extract_mean(window)
-        variance = extract_variance(window)
-        poly_fit = extract_poly_fit(window)
-        skewness = extract_poly_fit(window)
-        average_amplitude_change = extract_average_amplitude_change(window)
-        X_window_train_extracted.append(np.concatenate([mean, variance, poly_fit,
-                                                        skewness, average_amplitude_change]))
-    for window in X_window_dev:
-        mean = extract_mean(window)
-        variance = extract_variance(window)
-        poly_fit = extract_poly_fit(window)
-        skewness = extract_poly_fit(window)
-        average_amplitude_change = extract_average_amplitude_change(window)
-        X_window_train_dev.append(np.concatenate([mean, variance, poly_fit,
-                                                  skewness, average_amplitude_change]))
-    return X_window_train_extracted, X_window_train_dev
-
-
-def build_window_data(X_train, y_train, X_dev, y_dev, window_size):
+def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, feature_window_size):
     train_size, dev_size = len(X_train), len(X_dev)
+
     X_window_train, y_window_train = [], []
-    # flag = 0
-    for i in range(window_size-1, train_size):
-        feature_extracted_row = feature_extraction(X_train[i + 1 - window_size: i + 1])
-        X_window_train.append(feature_extracted_row)
-        # X_window_train.append(X_train[i + 1 - window_size: i + 1])
-        # print(type(X_train[i + 1 - window_size: i + 1]))
-        # print(X_train[i + 1 - window_size: i + 1])
-        # print(X_train[i + 1 - window_size: i + 1].mean(0))
-        # print(X_train[i + 1 - window_size: i + 1].min(0))
-        # print(X_train[i + 1 - window_size: i + 1].max(0))
-        # print(X_train[i + 1 - window_size: i + 1].std(0))
-        #sys.exit()
-        y_window_train.append(y_train[i])
+    input_buffer, label_buffer = deque(), deque()
+    for i in range(train_size-feature_window_size):
+        reading_window = X_train[i: i + feature_window_size]
+        reading_window_label = y_train[i + feature_window_size - 1]
+        input_buffer.append(feature_extraction(reading_window))
+        label_buffer.append(reading_window_label)
+        if len(input_buffer) == prediction_window_size:  # record the features when the prediction buffer is full
+            X_window_train.append(np.concatenate(np.array(input_buffer)))
+            y_window_train.append(label_buffer[-1])
+            input_buffer.popleft()
+            label_buffer.popleft()
+
     X_window_dev, y_window_dev = [], []
-    for i in range(window_size - 1, dev_size):
-        feature_extracted_row = feature_extraction(X_dev[i + 1 - window_size: i + 1])
-        X_window_dev.append(feature_extracted_row)
-        # X_window_dev.append(X_dev[i + 1 - window_size: i + 1])
-        y_window_dev.append(y_dev[i])
+    input_buffer, label_buffer = [], []
+    for i in range(dev_size - feature_window_size):
+        reading_window = X_dev[i: i + feature_window_size]
+        reading_window_label = y_dev[i + feature_window_size - 1]
+        extracted_features = feature_extraction(reading_window)
+        input_buffer.append(extracted_features)
+        label_buffer.append(reading_window_label)
+        if len(input_buffer) == prediction_window_size:  # record the features when the prediction buffer is full
+            X_window_dev.append(np.concatenate(np.array(input_buffer)))
+            y_window_dev.append(label_buffer[-1])
+            input_buffer, label_buffer = [], []  # clear buffers
     return X_window_train, y_window_train, X_window_dev, y_window_dev
 
 
@@ -171,16 +143,6 @@ def train(model, X, y):
         train_svm(X_train, y_train, X_dev, y_dev)
     elif model == "rf":
         train_rf(X_train, y_train, X_dev, y_dev)
-    elif model == "svm_seq":
-        train_svm_seq(X_train, y_train, X_dev, y_dev)
-    elif model == "rf_seq":
-        train_rf_seq(X_train, y_train, X_dev, y_dev)
-    elif model == "svm_extract":
-        train_svm_extract(X_train, y_train, X_dev, y_dev)
-    elif model == "rf_extract":
-        train_rf_extract(X_train, y_train, X_dev, y_dev)
-    elif model == "rf_extract_window":
-        train_rf_extract_window(X_train, y_train, X_dev, y_dev)
 
 
 if __name__ == "__main__":
