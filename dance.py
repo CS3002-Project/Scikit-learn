@@ -27,8 +27,8 @@ def read_data(data_dir):
     return x_array_train, y_array_train, x_array_dev, y_array_dev
 
 
-def run_svm_seq(x_array_train, y_array_train, x_array_dev, y_array_dev):
-    window_size = 24
+def run_rf_seq(x_array_train, y_array_train, x_array_dev, y_array_dev):
+    window_size = 16
     x_train, y_train, x_dev, y_dev = [], [], [], []
     for i in range(len(x_array_train)):
         x_window_train, y_window_train, x_window_dev, y_window_dev \
@@ -46,7 +46,7 @@ def run_svm_seq(x_array_train, y_array_train, x_array_dev, y_array_dev):
 def main():
     data_dir = "data"
     x_array_train, y_array_train, x_array_dev, y_array_dev = read_data(data_dir)
-    run_svm_seq(x_array_train, y_array_train, x_array_dev, y_array_dev)
+    run_rf_seq(x_array_train, y_array_train, x_array_dev, y_array_dev)
 
 
 if __name__ == "__main__":

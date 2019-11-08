@@ -3,6 +3,7 @@ import os
 import utils
 from collections import deque
 from joblib import load
+from models import feature_extraction
 
 
 reverse_label_map = {
@@ -21,7 +22,7 @@ reverse_label_map = {
 
 
 def run(test_dir, model_file):
-    window_size = 24  # change window size need to retrain the model
+    window_size = 16  # change window size need to retrain the model
     max_consecutive_agrees = 5
 
     model = load(model_file)
@@ -36,7 +37,8 @@ def run(test_dir, model_file):
         for row in test_data:
             reading_buffer.append(np.array([float(reading) for reading in row[3:]]))
             if len(reading_buffer) == window_size:
-                feature_vector = np.concatenate(reading_buffer).reshape(1, -1)
+                window_data = np.array(reading_buffer)
+                feature_vector = np.array(feature_extraction(window_data)).reshape(1, -1)
                 prediction = model.predict(feature_vector)[0]
                 reading_buffer.clear()
                 if current_prediction is None or prediction == current_prediction:
