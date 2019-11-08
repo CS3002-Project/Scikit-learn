@@ -21,10 +21,18 @@ reverse_label_map = {
 }
 
 
-def run(test_dir, model_file):
-    window_size = 16  # change window size need to retrain the model
-    max_consecutive_agrees = 5
+def evaluate(predicted_move, input_file):
+    if predicted_move not in input_file:
+        for k in reverse_label_map.values():
+            if k in input_file:
+                print("{} is mistaken as {}".format(k, predicted_move))
 
+
+def run(test_dir, model_file):
+    prediction_window_size = 24
+    feature_window_size = 20
+
+    max_consecutive_agrees = 10
     model = load(model_file)
     for file_name in os.listdir(test_dir):
         reading_buffer = deque()
@@ -34,17 +42,24 @@ def run(test_dir, model_file):
         current_prediction = None
         consecutive_agrees = 0
 
+        input_buffer = deque()
+
         for row in test_data:
             reading_buffer.append(np.array([float(reading) for reading in row[3:]]))
-            if len(reading_buffer) == window_size:
+            if len(reading_buffer) == feature_window_size:
                 window_data = np.array(reading_buffer)
-                feature_vector = np.array(feature_extraction(window_data)).reshape(1, -1)
-                prediction = model.predict(feature_vector)[0]
-                reading_buffer.clear()
+                feature_vector = np.array(feature_extraction(window_data))
+                input_buffer.append(feature_vector)
+                reading_buffer.popleft()
+            if len(input_buffer) == prediction_window_size:
+                input_feature_vector = np.concatenate(input_buffer)
+                prediction = model.predict(input_feature_vector.reshape(1, -1))[0]
+                input_buffer.popleft()
                 if current_prediction is None or prediction == current_prediction:
                     consecutive_agrees += 1
                     if consecutive_agrees == max_consecutive_agrees:
-                        print("Predicted move is {}".format(reverse_label_map[prediction]))
+                        predicted_move = reverse_label_map[prediction]
+                        evaluate(predicted_move, file_name)
                         consecutive_agrees = 0
                 else:
                     consecutive_agrees = 0
