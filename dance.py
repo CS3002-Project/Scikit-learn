@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from run_preprocess import label_map
-from models import build_window_data, train_rf
+from models import build_window_data, train_rf, train_mlp
 import utils
 
 
@@ -27,9 +27,9 @@ def read_data(data_dir):
     return x_array_train, y_array_train, x_array_dev, y_array_dev
 
 
-def run_rf_seq(x_array_train, y_array_train, x_array_dev, y_array_dev):
-    prediction_window_size = 16
-    feature_window_size = 5
+def prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev):
+    prediction_window_size = 30
+    feature_window_size = 10
     x_train, y_train, x_dev, y_dev = [], [], [], []
     for i in range(len(x_array_train)):
         x_window_train, y_window_train, x_window_dev, y_window_dev \
@@ -40,13 +40,15 @@ def run_rf_seq(x_array_train, y_array_train, x_array_dev, y_array_dev):
         x_dev += x_window_dev
         y_dev += y_window_dev
 
-    train_rf(x_train, y_train, x_dev, y_dev)
+    return x_train, y_train, x_dev, y_dev
 
 
 def main():
     data_dir = "data"
     x_array_train, y_array_train, x_array_dev, y_array_dev = read_data(data_dir)
-    run_rf_seq(x_array_train, y_array_train, x_array_dev, y_array_dev)
+    x_train, y_train, x_dev, y_dev = prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev)
+    train_rf(x_train, y_train, x_dev, y_dev)
+    # train_mlp(x_train, y_train, x_dev, y_dev)
 
 
 if __name__ == "__main__":
