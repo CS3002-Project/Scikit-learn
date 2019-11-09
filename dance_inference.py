@@ -29,6 +29,7 @@ def evaluate(predicted_move, input_file):
                 return False
     return True
 
+
 def run(test_dir, model_file):
     prediction_window_size = 30
     feature_window_size = 10

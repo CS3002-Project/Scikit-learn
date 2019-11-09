@@ -5,6 +5,21 @@ import pandas as pd
 import utils
 
 
+NAME_MAP = {
+    "bunny": 0,
+    "cowboy": 1,
+    "handmotor": 2,
+    "rocket": 3,
+    "tapshoulder": 4,
+    "hunchback": 5,
+    "james": 6,
+    "chicken": 7,
+    "movingsalute": 8,
+    "whip": 9
+    # "idle": 99,
+}
+
+
 def visualize(input_times, input_features, input_labels):
     input_features = list(input_features.T)
     args = []
@@ -23,20 +38,7 @@ def visualize(input_times, input_features, input_labels):
 
 
 def label_map(file_name):
-    name_map = {
-        "bunny": 0,
-        "cowboy": 1,
-        "handmotor": 2,
-        "rocket": 3,
-        "tapshoulder": 4,
-        "hunchback": 5,
-        "james": 6,
-        "chicken": 7,
-        "movingsalute": 8,
-        "whip": 9
-        # "idle": 99,
-    }
-    for k, v in name_map.items():
+    for k, v in NAME_MAP.items():
         if k in file_name:
             return v
     return -1
