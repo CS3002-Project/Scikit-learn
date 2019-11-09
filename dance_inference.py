@@ -26,13 +26,15 @@ def evaluate(predicted_move, input_file):
         for k in reverse_label_map.values():
             if k in input_file:
                 print("{} is mistaken as {}".format(k, predicted_move))
-
+                return False
+    return True
 
 def run(test_dir, model_file):
-    prediction_window_size = 24
-    feature_window_size = 20
+    prediction_window_size = 30
+    feature_window_size = 10
+    min_confidence = 0.8
 
-    max_consecutive_agrees = 10
+    max_consecutive_agrees = 10 
     model = load(model_file)
     for file_name in os.listdir(test_dir):
         reading_buffer = deque()
@@ -41,7 +43,7 @@ def run(test_dir, model_file):
         test_data = utils.read_csv(file_path, True)
         current_prediction = None
         consecutive_agrees = 0
-
+        result = None
         input_buffer = deque()
 
         for row in test_data:
@@ -53,18 +55,22 @@ def run(test_dir, model_file):
                 reading_buffer.popleft()
             if len(input_buffer) == prediction_window_size:
                 input_feature_vector = np.concatenate(input_buffer)
-                prediction = model.predict(input_feature_vector.reshape(1, -1))[0]
+                prediction_confidences = model.predict_proba(input_feature_vector.reshape(1, -1))[0]
+                prediction = np.argmax(prediction_confidences)
+                confidence = prediction_confidences[prediction]
                 input_buffer.popleft()
                 if current_prediction is None or prediction == current_prediction:
-                    consecutive_agrees += 1
-                    if consecutive_agrees == max_consecutive_agrees:
-                        predicted_move = reverse_label_map[prediction]
-                        evaluate(predicted_move, file_name)
-                        consecutive_agrees = 0
+                    if confidence > min_confidence:
+                        consecutive_agrees += 1
+                        if consecutive_agrees == max_consecutive_agrees:
+                            predicted_move = reverse_label_map[prediction]
+                            result = evaluate(predicted_move, file_name)
+                            consecutive_agrees = 0
+                            break
                 else:
                     consecutive_agrees = 0
                 current_prediction = prediction
-
+        print(result)
 
 if __name__ == "__main__":
     TEST_DIR = "test"
