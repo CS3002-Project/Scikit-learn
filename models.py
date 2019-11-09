@@ -37,12 +37,13 @@ def train_svm(X_train, y_train, X_dev, y_dev):
         pickle.dump(svm, f)
 
 
-def train_rf(X_train, y_train, X_dev, y_dev):
-    rfc = RandomForestClassifier(n_estimators=150)
+def train_rf(X_train, y_train, X_dev, y_dev, model_name):
+    rfc = RandomForestClassifier(n_estimators=20)
     rfc.fit(X_train, y_train)
     y_pred_rfc = rfc.predict(X_dev)
-    eval_model("rf", y_dev, y_pred_rfc)
-    dump(rfc, 'rf.joblib')
+    eval_model(model_name, y_dev, y_pred_rfc)
+    dump(rfc, "{}.joblib".format(model_name))
+    return rfc
 
 
 def train_mlp(X_train, y_train, X_dev, y_dev):
