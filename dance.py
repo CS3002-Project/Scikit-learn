@@ -121,7 +121,7 @@ def split_train_test(data_dir, num_iterations):
 
 
 def main():
-    num_iters = 5
+    num_iters = 1
     data_dir = "data"
     config = {
         "prediction_window_size": 32,
@@ -132,11 +132,12 @@ def main():
     }
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
     all_iter_test_accuracy, all_iter_first_correct = [], []
-    model_name = "{}_{}_{}_{}_{}".format(config["model_type"],
-                                         config["prediction_window_size"],
-                                         config["feature_window_size"],
-                                         config["min_confidence"],
-                                         config["max_consecutive_agrees"])
+    # model_name = "rf".format(config["model_type"],
+    #                                      config["prediction_window_size"],
+    #                                      config["feature_window_size"],
+    #                                      config["min_confidence"],
+    #                                      config["max_consecutive_agrees"])
+    model_name = "rf"
     for i in range(num_iters):
         train_files, test_files = iter_train_files[i], iter_test_files[i]
         x_array_train, y_array_train, x_array_dev, y_array_dev = read_data(train_files)
