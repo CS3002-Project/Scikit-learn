@@ -121,17 +121,17 @@ def split_train_test(data_dir, num_iterations):
 
 
 def main():
-    num_iters = 3
+    num_iters = 5
     data_dir = "data"
     config = {
-        "prediction_window_size": 16,
+        "prediction_window_size": 32,
         "feature_window_size": 10,
         "min_confidence": 0.8,
         "model_type": "rf",
-        "max_consecutive_agrees": 3
+        "max_consecutive_agrees": 2
     }
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
-    all_iter_test_accuracy = []
+    all_iter_test_accuracy, all_iter_first_correct = [], []
     model_name = "{}_{}_{}_{}_{}".format(config["model_type"],
                                          config["prediction_window_size"],
                                          config["feature_window_size"],
@@ -142,11 +142,14 @@ def main():
         x_array_train, y_array_train, x_array_dev, y_array_dev = read_data(train_files)
         x_train, y_train, x_dev, y_dev = prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev, config)
         trained_model = train_rf(x_train, y_train, x_dev, y_dev, model_name)
-        iter_test_accuracy = test(trained_model, test_files, config)
+        iter_test_accuracy, iter_first_correct = test(trained_model, test_files, config)
         all_iter_test_accuracy.append(iter_test_accuracy)
+        all_iter_first_correct.append(iter_first_correct)
     final_accuracy = np.mean(all_iter_test_accuracy)
-    with open("{}_eval.json".format(model_name), "wb") as f:
+    final_first_correct = np.mean(all_iter_first_correct)
+    with open("{}_eval.json".format(model_name), "w") as f:
         json.dump({
+            "first_correct": final_first_correct,
             "accuracy": final_accuracy
         }, f)
 
@@ -158,6 +161,7 @@ def test(trained_model, test_files, config):
 
     max_consecutive_agrees = config["max_consecutive_agrees"]
     accuracies = []
+    first_corrects = []
     for file_path in test_files:
         reading_buffer = deque()
         print("Reading file {}".format(file_path))
@@ -166,7 +170,7 @@ def test(trained_model, test_files, config):
         consecutive_agrees = 0
         input_buffer = deque()
         num_prediction, correct = 0., 0.
-
+        first_correct = None
         for row in test_data:
             reading_buffer.append(np.array([float(reading) for reading in row[3:]]))
             if len(reading_buffer) == feature_window_size:
@@ -184,15 +188,17 @@ def test(trained_model, test_files, config):
                     if confidence > min_confidence:
                         consecutive_agrees += 1
                         if consecutive_agrees == max_consecutive_agrees:
-                            predicted_move = reverse_label_map[prediction[0]]
+                            predicted_move = reverse_label_map[prediction]
                             correct += evaluate(predicted_move, file_path)
+                            first_correct = correct if first_correct is None else first_correct
                             consecutive_agrees = 0
                             num_prediction += 1
                 else:
                     consecutive_agrees = 0
                 current_prediction = prediction
         accuracies.append(correct/num_prediction)
-    return np.mean(accuracies)
+        first_corrects.append(first_correct)
+    return np.mean(accuracies), np.mean(first_corrects)
 
 
 if __name__ == "__main__":
