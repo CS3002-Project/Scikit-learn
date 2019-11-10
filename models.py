@@ -38,7 +38,7 @@ def train_svm(X_train, y_train, X_dev, y_dev):
 
 
 def train_rf(X_train, y_train, X_dev, y_dev, model_name):
-    rfc = RandomForestClassifier(n_estimators=20)
+    rfc = RandomForestClassifier(n_estimators=150)
     rfc.fit(X_train, y_train)
     y_pred_rfc = rfc.predict(X_dev)
     eval_model(model_name, y_dev, y_pred_rfc)
