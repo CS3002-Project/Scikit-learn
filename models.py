@@ -48,6 +48,7 @@ def train_rf(X_train, y_train, X_dev, y_dev, model_name):
 
 
 def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name):
+    print("Train random forest")
     rfc = RandomForestClassifier(warm_start=True, n_estimators=1)
     num_train_batches = len(x_train_batches)
     feature_importance_batches = []
@@ -73,8 +74,9 @@ def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batc
 
 
 def train_mlp(X_train, y_train, X_dev, y_dev):
-    num_hidden_1 = 100
-    num_hidden_2 = 50
+    print("Train feed-forward neural network")
+    num_hidden_1 = 500
+    num_hidden_2 = 100
     scaler = MinMaxScaler()
     scaled_X_train = scaler.fit_transform(X_train)
     scaled_X_dev = scaler.transform(X_dev)

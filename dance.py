@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from run_preprocess import label_map, NAME_MAP
-from models import build_window_data, train_rf, train_mlp, feature_extraction, train_rf_batches
+from models import build_window_data, train_mlp, feature_extraction, train_rf_batches
 import utils
 import copy
 import random
@@ -156,7 +156,8 @@ def main():
         "model_type": "rf",
         "max_consecutive_agrees": 2,
         "test_size": 0.8,
-        "pad_size": 2
+        "pad_size": 2,
+        "mlp": True
     }
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
     all_iter_test_accuracy, all_iter_first_correct = [], []
@@ -172,8 +173,9 @@ def main():
         x_train, _, y_train, _ = train_test_split(x_train, y_train, test_size=0.0001)
         x_train_batches, y_train_batches = divide_into_batches(x_train, y_train, batch_size)
         x_dev_batches, y_dev_batches = divide_into_batches(x_dev, y_dev, batch_size)
-        trained_model = train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name)
-        iter_test_accuracy, iter_first_correct = test(trained_model, test_files, config)
+        trained_rf = train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name)
+        trained_mlp = train_mlp(x_train, y_train, x_dev, y_dev) if config["mlp"] else None
+        iter_test_accuracy, iter_first_correct = test(trained_rf, trained_mlp, test_files, config)
         all_iter_test_accuracy.append(iter_test_accuracy)
         all_iter_first_correct.append(iter_first_correct)
     final_accuracy = np.mean(all_iter_test_accuracy)
@@ -185,7 +187,7 @@ def main():
         }, f)
 
 
-def test(trained_model, test_files, config):
+def test(trained_rf, trained_mlp, test_files, config):
     prediction_window_size = config["prediction_window_size"]
     feature_window_size = config["feature_window_size"]
     min_confidence = config["min_confidence"]
@@ -211,23 +213,32 @@ def test(trained_model, test_files, config):
                 reading_buffer.popleft()
             if len(input_buffer) == prediction_window_size:
                 input_feature_vector = np.concatenate(input_buffer)
-                prediction_confidences = trained_model.predict_proba(input_feature_vector.reshape(1, -1))[0]
+                prediction_confidences = trained_rf.predict_proba(input_feature_vector.reshape(1, -1))[0]
                 prediction = np.argmax(prediction_confidences)
                 confidence = prediction_confidences[prediction]
+                predictions, confidences = [prediction], [confidence]
+                if trained_mlp is not None:
+                    mlp_prediction_confidences = trained_mlp.predict_proba(input_feature_vector.reshape(1, -1))[0]
+                    mlp_prediction = np.argmax(mlp_prediction_confidences)
+                    mlp_confidence = prediction_confidences[prediction]
+                    predictions.append(mlp_prediction)
+                    confidences.append(mlp_confidence)
                 for _ in range(pad_size):
                     input_buffer.popleft()
-                if current_prediction is None or prediction == current_prediction:
-                    if confidence > min_confidence:
-                        consecutive_agrees += 1
-                        if consecutive_agrees == max_consecutive_agrees:
-                            predicted_move = reverse_label_map[prediction]
-                            result = evaluate(predicted_move, file_path)
-                            correct += result
-                            if first_correct is None and result == 1:
-                                print("First prediction is correct")
-                            first_correct = result
-                            consecutive_agrees = 0
-                            num_prediction += 1
+                if current_prediction is None or(len(set(predictions)) == 1 and np.min(confidences) > min_confidence):
+                    consecutive_agrees += 1
+                    prediction = predictions[0]
+                    if consecutive_agrees == max_consecutive_agrees:
+                        predicted_move = reverse_label_map[prediction]
+                        result = evaluate(predicted_move, file_path)
+                        correct += result
+                        if first_correct is None and result == 1:
+                            print("First prediction is correct")
+                        elif first_correct is None:
+                            print("First prediction is wrong")
+                        first_correct = result
+                        consecutive_agrees = 0
+                        num_prediction += 1
                 else:
                     consecutive_agrees = 0
                 current_prediction = prediction
@@ -236,6 +247,7 @@ def test(trained_model, test_files, config):
         else:
             accuracies.append(correct/num_prediction)
         if first_correct is None:
+            print("No prediction was given")
             first_corrects.append(0)
         else:
             first_corrects.append(first_correct)
