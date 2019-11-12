@@ -135,7 +135,7 @@ def feature_extraction(window_rows):
     return feature_extracted_row
 
 
-def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, feature_window_size):
+def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, feature_window_size, pad_size=1):
     train_size, dev_size = len(X_train), len(X_dev)
 
     X_window_train, y_window_train = [], []
@@ -148,8 +148,9 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
         if len(input_buffer) == prediction_window_size:  # record the features when the prediction buffer is full
             X_window_train.append(np.concatenate(np.array(input_buffer).astype(np.float16)))
             y_window_train.append(label_buffer[-1])
-            input_buffer.popleft()
-            label_buffer.popleft()
+            for _ in range(pad_size):
+                input_buffer.popleft()
+                label_buffer.popleft()
 
     X_window_dev, y_window_dev = [], []
     input_buffer, label_buffer = deque(), deque()
@@ -162,8 +163,9 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
         if len(input_buffer) == prediction_window_size:  # record the features when the prediction buffer is full
             X_window_dev.append(np.concatenate(np.array(input_buffer)))
             y_window_dev.append(label_buffer[-1])
-            input_buffer.popleft()
-            label_buffer.popleft()
+            for _ in range(pad_size):
+                input_buffer.popleft()
+                label_buffer.popleft()
     return X_window_train, y_window_train, X_window_dev, y_window_dev
 
 
