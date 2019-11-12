@@ -38,7 +38,8 @@ def train_svm(X_train, y_train, X_dev, y_dev):
 
 
 def train_rf(X_train, y_train, X_dev, y_dev, model_name):
-    rfc = RandomForestClassifier(n_estimators=150)
+    print(len(X_train[0]))
+    rfc = RandomForestClassifier(n_estimators=150, n_jobs=-1)
     rfc.fit(X_train, y_train)
     y_pred_rfc = rfc.predict(X_dev)
     eval_model(model_name, y_dev, y_pred_rfc)
@@ -141,7 +142,7 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
         input_buffer.append(feature_extraction(reading_window))
         label_buffer.append(reading_window_label)
         if len(input_buffer) == prediction_window_size:  # record the features when the prediction buffer is full
-            X_window_train.append(np.concatenate(np.array(input_buffer)))
+            X_window_train.append(np.concatenate(np.array(input_buffer).astype(np.float16)))
             y_window_train.append(label_buffer[-1])
             input_buffer.popleft()
             label_buffer.popleft()

@@ -137,7 +137,7 @@ def main():
     batch_size = 1048
     data_dir = "data"
     config = {
-        "prediction_window_size": 32,
+        "prediction_window_size": 18,
         "feature_window_size": 10,
         "min_confidence": 0.8,
         "model_type": "rf",
