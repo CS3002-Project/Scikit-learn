@@ -37,19 +37,9 @@ def train_svm(X_train, y_train, X_dev, y_dev):
         pickle.dump(svm, f)
 
 
-def train_rf(X_train, y_train, X_dev, y_dev, model_name):
-    print(len(X_train[0]))
-    rfc = RandomForestClassifier(n_estimators=150, n_jobs=-1)
-    rfc.fit(X_train, y_train)
-    y_pred_rfc = rfc.predict(X_dev)
-    eval_model(model_name, y_dev, y_pred_rfc)
-    dump(rfc, "{}.joblib".format(model_name))
-    return rfc
-
-
 def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name):
     print("Train random forest")
-    rfc = RandomForestClassifier(warm_start=True, n_estimators=1)
+    rfc = RandomForestClassifier(warm_start=True, n_estimators=10)
     num_train_batches = len(x_train_batches)
     feature_importance_batches = []
     for i in tqdm(range(num_train_batches), desc="Training batched RF"):  # 10 passes through the data
