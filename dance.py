@@ -9,6 +9,8 @@ from collections import deque
 import json
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
+import argparse
+import joblib
 
 
 important_idxs = None
@@ -145,21 +147,10 @@ def preprocess_data(train_files, config):
     return x_train, y_train, x_dev, y_dev
 
 
-def main():
+def main(config):
     num_iters = 1
     batch_size = 1048
     data_dir = "data"
-    config = {
-        "prediction_window_size": 32,
-        "feature_window_size": 10,
-        "min_confidence": 0.85,
-        "model_type": "rf",
-        "max_consecutive_agrees": 2,
-        "test_size": 0.9,
-        "pad_size": 3,
-        "mlp": True,
-        "mlp_limit": 3000
-    }
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
     all_iter_test_accuracy, all_iter_first_correct = [], []
     # model_name = "rf".format(config["model_type"],
@@ -170,6 +161,7 @@ def main():
     model_name = "rf"
     for i in range(num_iters):
         train_files, test_files = iter_train_files[i], iter_test_files[i]
+        utils.save_list_as_text(test_files, "test_files.txt")
         x_train, y_train, x_dev, y_dev = preprocess_data(train_files, config)
         x_train, _, y_train, _ = train_test_split(x_train, y_train, test_size=0.0001)
         x_train_batches, y_train_batches = divide_into_batches(x_train, y_train, batch_size)
@@ -255,5 +247,29 @@ def test(trained_rf, trained_mlp, test_files, config):
     return np.mean(accuracies), np.mean(first_corrects)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Community FAQ pre-processing')
+    parser.add_argument('-s', '--simulate', action='store_true', help='Only simulate')
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    main()
+    p_args = parse_args()
+    config = {
+        "prediction_window_size": 32,
+        "feature_window_size": 10,
+        "min_confidence": 0.85,
+        "model_type": "rf",
+        "max_consecutive_agrees": 2,
+        "test_size": 0.9,
+        "pad_size": 3,
+        "mlp": True,
+        "mlp_limit": 3000
+    }
+    if p_args.simulate:
+        test_files = utils.load_text_as_list("test_files.txt")
+        trained_rf = joblib.load("rf.joblib")
+        trained_mlp = joblib.load("mlp.joblib")
+        test(trained_rf, None, test_files, config)
+    else:
+        main(config)
