@@ -116,15 +116,15 @@ def prepare_data(x_train_single, y_train_single, x_dev_single, y_dev_single, con
     feature_window_size = config["feature_window_size"]
     x_window_train, y_window_train, x_window_dev, y_window_dev \
         = build_window_data(x_train_single, y_train_single, x_dev_single, y_dev_single,
-                            prediction_window_size, feature_window_size)
+                            prediction_window_size, feature_window_size, config["pad_size"])
     return x_window_train, y_window_train, x_window_dev, y_window_dev
 
 
 def preprocess_data(train_files, config):
     x_train, y_train, x_dev, y_dev = [], [], [], []
     for file in tqdm(train_files, desc="preprocessing_data"):
-        cache_file_path = file.replace("data/", "cache/").replace(".csv", "_fw{}_pw{}_ts{}_cache.pickle".format(
-            config["feature_window_size"], config["prediction_window_size"], config["test_size"]))
+        cache_file_path = file.replace("data/", "cache/").replace(".csv", "_fw{}_pw{}_pad{}_ts{}_cache.pickle".format(
+            config["feature_window_size"], config["prediction_window_size"], config["pad_size"], config["test_size"]))
         if os.path.exists(cache_file_path):
             print("Load cache from {}".format(cache_file_path))
             x_window_train, y_window_train, x_window_dev, y_window_dev = utils.load_from_pickle(cache_file_path)
@@ -151,7 +151,8 @@ def main():
         "min_confidence": 0.8,
         "model_type": "rf",
         "max_consecutive_agrees": 2,
-        "test_size": 0.8
+        "test_size": 0.8,
+        "pad_size": 2
     }
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
     all_iter_test_accuracy, all_iter_first_correct = [], []
@@ -184,7 +185,7 @@ def test(trained_model, test_files, config):
     prediction_window_size = config["prediction_window_size"]
     feature_window_size = config["feature_window_size"]
     min_confidence = config["min_confidence"]
-
+    pad_size = config["pad_size"]
     max_consecutive_agrees = config["max_consecutive_agrees"]
     accuracies = []
     first_corrects = []
@@ -209,7 +210,8 @@ def test(trained_model, test_files, config):
                 prediction_confidences = trained_model.predict_proba(input_feature_vector.reshape(1, -1))[0]
                 prediction = np.argmax(prediction_confidences)
                 confidence = prediction_confidences[prediction]
-                input_buffer.popleft()
+                for _ in range(pad_size):
+                    input_buffer.popleft()
                 if current_prediction is None or prediction == current_prediction:
                     if confidence > min_confidence:
                         consecutive_agrees += 1
