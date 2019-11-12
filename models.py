@@ -73,8 +73,9 @@ def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batc
     return rfc
 
 
-def train_mlp(X_train, y_train, X_dev, y_dev):
+def train_mlp(X_train, y_train, X_dev, y_dev, limit):
     print("Train feed-forward neural network")
+    X_train, y_train, X_dev, y_dev = X_train[:limit], y_train[:limit], X_dev[:limit], y_dev[:limit]
     num_hidden_1 = 500
     num_hidden_2 = 100
     scaler = MinMaxScaler()
