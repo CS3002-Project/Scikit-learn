@@ -150,14 +150,15 @@ def main():
     batch_size = 1048
     data_dir = "data"
     config = {
-        "prediction_window_size": 18,
+        "prediction_window_size": 32,
         "feature_window_size": 10,
-        "min_confidence": 0.8,
+        "min_confidence": 0.85,
         "model_type": "rf",
         "max_consecutive_agrees": 2,
-        "test_size": 0.8,
-        "pad_size": 2,
-        "mlp": True
+        "test_size": 0.9,
+        "pad_size": 3,
+        "mlp": True,
+        "mlp_limit": 3000
     }
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
     all_iter_test_accuracy, all_iter_first_correct = [], []
@@ -174,7 +175,7 @@ def main():
         x_train_batches, y_train_batches = divide_into_batches(x_train, y_train, batch_size)
         x_dev_batches, y_dev_batches = divide_into_batches(x_dev, y_dev, batch_size)
         trained_rf = train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name)
-        trained_mlp = train_mlp(x_train, y_train, x_dev, y_dev) if config["mlp"] else None
+        trained_mlp = train_mlp(x_train, y_train, x_dev, y_dev, config["mlp_limit"]) if config["mlp"] else None
         iter_test_accuracy, iter_first_correct = test(trained_rf, trained_mlp, test_files, config)
         all_iter_test_accuracy.append(iter_test_accuracy)
         all_iter_first_correct.append(iter_first_correct)
