@@ -34,43 +34,6 @@ def evaluate(predicted_move, input_file):
     return 1
 
 
-def read_data(file_paths):
-    test_size = 0.2
-    x_array_train, y_array_train = [], []
-    x_array_dev, y_array_dev = [], []
-    for file_path in file_paths:
-        x_sample = []
-        label = label_map(file_path)
-        x_raw_data = utils.read_csv(file_path, load_header=True, delimiter=",")
-        for row in x_raw_data:
-            x_snapshot = np.array([float(reading) for reading in row[3:]])
-            x_sample.append(x_snapshot)
-        y_sample = [label] * len(x_sample)
-        test_num = int(len(x_sample) * test_size)
-
-        x_array_train.append(np.array(x_sample[:-test_num]))
-        y_array_train.append(np.array(y_sample[:-test_num]))
-        x_array_dev.append(np.array(x_sample[-test_num:]))
-        y_array_dev.append(np.array(y_sample[-test_num:]))
-    return x_array_train, y_array_train, x_array_dev, y_array_dev
-
-
-def prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev, config):
-    prediction_window_size = config["prediction_window_size"]
-    feature_window_size = config["feature_window_size"]
-    x_train, y_train, x_dev, y_dev = [], [], [], []
-    for i in tqdm(range(len(x_array_train)), desc="Preparing data"):
-        x_window_train, y_window_train, x_window_dev, y_window_dev \
-            = build_window_data(x_array_train[i], y_array_train[i], x_array_dev[i], y_array_dev[i],
-                                prediction_window_size, feature_window_size)
-        x_train += x_window_train
-        y_train += y_window_train
-        x_dev += x_window_dev
-        y_dev += y_window_dev
-
-    return x_train, y_train, x_dev, y_dev
-
-
 def divide_into_batches(x_data, y_data, batch_size):
     x_batches, y_batches = [], []
     data_size = len(x_data)
@@ -132,6 +95,52 @@ def split_train_test(data_dir, num_iterations):
     return iter_train_files, iter_test_files
 
 
+def read_data_from_file(file_path, test_size):
+    x_sample = []
+    label = label_map(file_path)
+    x_raw_data = utils.read_csv(file_path, load_header=True, delimiter=",")
+    for row in x_raw_data:
+        x_snapshot = np.array([float(reading) for reading in row[3:]])
+        x_sample.append(x_snapshot)
+    y_sample = [label] * len(x_sample)
+    test_num = int(len(x_sample) * test_size)
+    x_train = np.array(x_sample[:-test_num])
+    y_train = np.array(y_sample[:-test_num])
+    x_dev = np.array(x_sample[-test_num:])
+    y_dev = np.array(y_sample[-test_num:])
+    return x_train, y_train, x_dev, y_dev
+
+
+def prepare_data(x_train_single, y_train_single, x_dev_single, y_dev_single, config):
+    prediction_window_size = config["prediction_window_size"]
+    feature_window_size = config["feature_window_size"]
+    x_window_train, y_window_train, x_window_dev, y_window_dev \
+        = build_window_data(x_train_single, y_train_single, x_dev_single, y_dev_single,
+                            prediction_window_size, feature_window_size)
+    return x_window_train, y_window_train, x_window_dev, y_window_dev
+
+
+def preprocess_data(train_files, config):
+    x_train, y_train, x_dev, y_dev = [], [], [], []
+    for file in tqdm(train_files, desc="preprocessing_data"):
+        cache_file_path = file.replace("data/", "cache/").replace(".csv", "_fw{}_pw{}_ts{}_cache.pickle".format(
+            config["feature_window_size"], config["prediction_window_size"], config["test_size"]))
+        if os.path.exists(cache_file_path):
+            print("Load cache from {}".format(cache_file_path))
+            x_window_train, y_window_train, x_window_dev, y_window_dev = utils.load_from_pickle(cache_file_path)
+        else:
+            x_train_single, y_train_single, x_dev_single, y_dev_single = read_data_from_file(file, config["test_size"])
+            x_window_train, y_window_train, x_window_dev, y_window_dev = \
+                prepare_data(x_train_single, y_train_single, x_dev_single, y_dev_single, config)
+            print("Save cache to {}".format(cache_file_path))
+            utils.save_to_pickle((x_window_train, y_window_train, x_window_dev, y_window_dev), cache_file_path)
+        x_train.extend(x_window_train)
+        y_train.extend(y_window_train)
+        x_dev.extend(x_window_dev)
+        y_dev.extend(y_window_dev)
+    return x_train, y_train, x_dev, y_dev
+
+
 def main():
     num_iters = 1
     batch_size = 1048
@@ -141,7 +150,8 @@ def main():
         "feature_window_size": 10,
         "min_confidence": 0.8,
         "model_type": "rf",
-        "max_consecutive_agrees": 2
+        "max_consecutive_agrees": 2,
+        "test_size": 0.8
     }
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
     all_iter_test_accuracy, all_iter_first_correct = [], []
@@ -153,8 +163,7 @@ def main():
     model_name = "rf"
     for i in range(num_iters):
         train_files, test_files = iter_train_files[i], iter_test_files[i]
-        x_array_train, y_array_train, x_array_dev, y_array_dev = read_data(train_files)
-        x_train, y_train, x_dev, y_dev = prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev, config)
+        x_train, y_train, x_dev, y_dev = preprocess_data(train_files, config)
         x_train, _, y_train, _ = train_test_split(x_train, y_train, test_size=0.0001)
         x_train_batches, y_train_batches = divide_into_batches(x_train, y_train, batch_size)
         x_dev_batches, y_dev_batches = divide_into_batches(x_dev, y_dev, batch_size)
@@ -206,8 +215,11 @@ def test(trained_model, test_files, config):
                         consecutive_agrees += 1
                         if consecutive_agrees == max_consecutive_agrees:
                             predicted_move = reverse_label_map[prediction]
-                            correct += evaluate(predicted_move, file_path)
-                            first_correct = correct if first_correct is None else first_correct
+                            result = evaluate(predicted_move, file_path)
+                            correct += result
+                            if first_correct is None and result == 1:
+                                print("First prediction is correct")
+                            first_correct = result
                             consecutive_agrees = 0
                             num_prediction += 1
                 else:
