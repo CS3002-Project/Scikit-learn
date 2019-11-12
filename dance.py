@@ -1,13 +1,14 @@
 import numpy as np
 import os
 from run_preprocess import label_map, NAME_MAP
-from models import build_window_data, train_rf, train_mlp, feature_extraction
+from models import build_window_data, train_rf, train_mlp, feature_extraction, train_rf_batches
 import utils
 import copy
 import random
 from collections import deque
 import json
 from tqdm import tqdm
+from sklearn.model_selection import train_test_split
 
 
 reverse_label_map = {
@@ -58,7 +59,7 @@ def prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev, config)
     prediction_window_size = config["prediction_window_size"]
     feature_window_size = config["feature_window_size"]
     x_train, y_train, x_dev, y_dev = [], [], [], []
-    for i in range(len(x_array_train)):
+    for i in tqdm(range(len(x_array_train)), desc="Preparing data"):
         x_window_train, y_window_train, x_window_dev, y_window_dev \
             = build_window_data(x_array_train[i], y_array_train[i], x_array_dev[i], y_array_dev[i],
                                 prediction_window_size, feature_window_size)
@@ -68,6 +69,17 @@ def prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev, config)
         y_dev += y_window_dev
 
     return x_train, y_train, x_dev, y_dev
+
+
+def divide_into_batches(x_data, y_data, batch_size):
+    x_batches, y_batches = [], []
+    data_size = len(x_data)
+    i = 0
+    while i < data_size:
+        x_batches.append(x_data[i: i + batch_size])
+        y_batches.append(y_data[i: i + batch_size])
+        i += batch_size
+    return x_batches, y_batches
 
 
 def split_train_test(data_dir, num_iterations):
@@ -122,6 +134,7 @@ def split_train_test(data_dir, num_iterations):
 
 def main():
     num_iters = 1
+    batch_size = 1048
     data_dir = "data"
     config = {
         "prediction_window_size": 32,
@@ -142,7 +155,10 @@ def main():
         train_files, test_files = iter_train_files[i], iter_test_files[i]
         x_array_train, y_array_train, x_array_dev, y_array_dev = read_data(train_files)
         x_train, y_train, x_dev, y_dev = prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev, config)
-        trained_model = train_rf(x_train, y_train, x_dev, y_dev, model_name)
+        x_train, _, y_train, _ = train_test_split(x_train, y_train, test_size=0.0001)
+        x_train_batches, y_train_batches = divide_into_batches(x_train, y_train, batch_size)
+        x_dev_batches, y_dev_batches = divide_into_batches(x_dev, y_dev, batch_size)
+        trained_model = train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name)
         iter_test_accuracy, iter_first_correct = test(trained_model, test_files, config)
         all_iter_test_accuracy.append(iter_test_accuracy)
         all_iter_first_correct.append(iter_first_correct)
@@ -197,8 +213,14 @@ def test(trained_model, test_files, config):
                 else:
                     consecutive_agrees = 0
                 current_prediction = prediction
-        accuracies.append(correct/num_prediction)
-        first_corrects.append(first_correct)
+        if num_prediction == 0.:
+            accuracies.append(0.)
+        else:
+            accuracies.append(correct/num_prediction)
+        if first_correct is None:
+            first_corrects.append(0)
+        else:
+            first_corrects.append(first_correct)
     return np.mean(accuracies), np.mean(first_corrects)
 
 

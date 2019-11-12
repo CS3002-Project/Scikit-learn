@@ -46,6 +46,27 @@ def train_rf(X_train, y_train, X_dev, y_dev, model_name):
     return rfc
 
 
+def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name):
+    rfc = RandomForestClassifier(warm_start=True, n_estimators=1)
+    num_train_batches = len(x_train_batches)
+    print(num_train_batches)
+    for i in tqdm(range(num_train_batches), desc="Training batched RF"):  # 10 passes through the data
+        X = x_train_batches[i]
+        y = y_train_batches[i]
+        rfc.fit(X, y)
+        rfc.n_estimators += 1  # increment by one so next  will add 1 tree
+    num_dev_batches = len(x_dev_batches)
+
+    y_pred_rfc_batches = []
+    for i in tqdm(range(num_dev_batches), desc="Evaluating batched RF"):
+        X_dev = x_dev_batches[i]
+        y_pred_rfc = rfc.predict(X_dev)
+        y_pred_rfc_batches.append(y_pred_rfc)
+    eval_model_batches(model_name, y_dev_batches, y_pred_rfc_batches, num_dev_batches)
+    dump(rfc, "{}.joblib".format(model_name))
+    return rfc
+
+
 def train_mlp(X_train, y_train, X_dev, y_dev):
     num_hidden_1 = 100
     num_hidden_2 = 50
@@ -85,9 +106,13 @@ def extract_average_amplitude_change(channel_features):
 def extract_average_moving_rms(channel_features):
     moving_rms = []
     for i in range(0, len(channel_features)-1):
-        moving_rms.append(mean_squared_error(channel_features[i+1],
-                                             channel_features[i], multioutput='raw_values'))
-    return np.mean(moving_rms, axis=0)
+        curr_reading = channel_features[i+1]
+        next_reading = channel_features[i]
+        raw_values = mean_squared_error(curr_reading,
+                                        next_reading, multioutput='raw_values')
+        moving_rms.append(raw_values)
+    average_moving_rms = np.mean(moving_rms, axis=1)
+    return average_moving_rms
 
 
 def feature_extraction(window_rows):
@@ -110,7 +135,7 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
 
     X_window_train, y_window_train = [], []
     input_buffer, label_buffer = deque(), deque()
-    for i in range(train_size-feature_window_size):
+    for i in tqdm(range(train_size-feature_window_size), desc="Building train window size"):
         reading_window = X_train[i: i + feature_window_size]
         reading_window_label = y_train[i + feature_window_size - 1]
         input_buffer.append(feature_extraction(reading_window))
@@ -123,7 +148,7 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
 
     X_window_dev, y_window_dev = [], []
     input_buffer, label_buffer = deque(), deque()
-    for i in range(dev_size - feature_window_size):
+    for i in tqdm(range(dev_size - feature_window_size), desc="Building dev window size"):
         reading_window = X_dev[i: i + feature_window_size]
         reading_window_label = y_dev[i + feature_window_size - 1]
         extracted_features = feature_extraction(reading_window)
@@ -135,6 +160,23 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
             input_buffer.popleft()
             label_buffer.popleft()
     return X_window_train, y_window_train, X_window_dev, y_window_dev
+
+
+def eval_model_batches(model, y_test_batches, y_pred_rfc_batches, num_test_batches):
+    accuracies, f1_scores = [], []
+    for i in range(num_test_batches):
+        y_test = y_test_batches[i]
+        y_pred_rfc = y_pred_rfc_batches[i]
+        accuracy = accuracy_score(y_test, y_pred_rfc)
+        f1 = f1_score(y_test, y_pred_rfc, average="macro")
+        accuracies.append(accuracy)
+        f1_scores.append(f1)
+    eval_results = {
+        "accuracy": np.mean(accuracies),
+        "f1": np.mean(f1_scores)
+    }
+    with open("{}_eval.json".format(model), "w") as f:
+        json.dump(eval_results, f)
 
 
 def eval_model(model, y_test, y_pred_rfc):
@@ -150,21 +192,3 @@ def eval_model(model, y_test, y_pred_rfc):
     }
     with open("{}_eval.json".format(model), "w") as f:
         json.dump(eval_results, f)
-
-
-def train(model, X, y):
-    data_size = len(X)
-    test_size = int(data_size * TEST_SIZE)
-    X_train, y_train = X[:-test_size], y[:-test_size]
-    X_dev, y_dev = X[-test_size:], y[-test_size:]
-    X_train, X_dev = standardise_dataset(X_train, X_dev)
-
-    if model == "svm":
-        train_svm(X_train, y_train, X_dev, y_dev)
-    elif model == "rf":
-        train_rf(X_train, y_train, X_dev, y_dev)
-
-
-if __name__ == "__main__":
-    X, y = read_data("subject4_ideal.log")
-    train("rf_extract_window", X, y)
