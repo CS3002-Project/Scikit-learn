@@ -50,12 +50,13 @@ def train_rf(X_train, y_train, X_dev, y_dev, model_name):
 def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name):
     rfc = RandomForestClassifier(warm_start=True, n_estimators=1)
     num_train_batches = len(x_train_batches)
-    print(num_train_batches)
+    feature_importance_batches = []
     for i in tqdm(range(num_train_batches), desc="Training batched RF"):  # 10 passes through the data
         X = x_train_batches[i]
         y = y_train_batches[i]
         rfc.fit(X, y)
-        rfc.n_estimators += 1  # increment by one so next  will add 1 tree
+        feature_importance_batches.append(rfc.feature_importances_)
+        rfc.n_estimators += 1
     num_dev_batches = len(x_dev_batches)
 
     y_pred_rfc_batches = []
@@ -65,6 +66,9 @@ def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batc
         y_pred_rfc_batches.append(y_pred_rfc)
     eval_model_batches(model_name, y_dev_batches, y_pred_rfc_batches, num_dev_batches)
     dump(rfc, "{}.joblib".format(model_name))
+    average_feature_importance = np.mean(feature_importance_batches, axis=0)
+    with open("{}_feat_imp.json".format(model_name), "w") as f:
+        json.dump(list([str(x) for x in average_feature_importance]), f)
     return rfc
 
 
@@ -136,7 +140,7 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
 
     X_window_train, y_window_train = [], []
     input_buffer, label_buffer = deque(), deque()
-    for i in tqdm(range(train_size-feature_window_size), desc="Building train window size"):
+    for i in range(train_size-feature_window_size):
         reading_window = X_train[i: i + feature_window_size]
         reading_window_label = y_train[i + feature_window_size - 1]
         input_buffer.append(feature_extraction(reading_window))
@@ -149,7 +153,7 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
 
     X_window_dev, y_window_dev = [], []
     input_buffer, label_buffer = deque(), deque()
-    for i in tqdm(range(dev_size - feature_window_size), desc="Building dev window size"):
+    for i in range(dev_size - feature_window_size):
         reading_window = X_dev[i: i + feature_window_size]
         reading_window_label = y_dev[i + feature_window_size - 1]
         extracted_features = feature_extraction(reading_window)
