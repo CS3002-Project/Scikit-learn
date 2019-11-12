@@ -58,7 +58,7 @@ def prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev, config)
     prediction_window_size = config["prediction_window_size"]
     feature_window_size = config["feature_window_size"]
     x_train, y_train, x_dev, y_dev = [], [], [], []
-    for i in range(len(x_array_train)):
+    for i in tqdm(range(len(x_array_train))):
         x_window_train, y_window_train, x_window_dev, y_window_dev \
             = build_window_data(x_array_train[i], y_array_train[i], x_array_dev[i], y_array_dev[i],
                                 prediction_window_size, feature_window_size)
@@ -124,7 +124,7 @@ def main():
     num_iters = 1
     data_dir = "data"
     config = {
-        "prediction_window_size": 32,
+        "prediction_window_size": 18,
         "feature_window_size": 10,
         "min_confidence": 0.8,
         "model_type": "rf",
@@ -143,6 +143,7 @@ def main():
         x_array_train, y_array_train, x_array_dev, y_array_dev = read_data(train_files)
         x_train, y_train, x_dev, y_dev = prepare_data(x_array_train, y_array_train, x_array_dev, y_array_dev, config)
         trained_model = train_rf(x_train, y_train, x_dev, y_dev, model_name)
+        print(trained_model.feature_importances_)
         iter_test_accuracy, iter_first_correct = test(trained_model, test_files, config)
         all_iter_test_accuracy.append(iter_test_accuracy)
         all_iter_first_correct.append(iter_first_correct)

@@ -31,7 +31,7 @@ def evaluate(predicted_move, input_file):
 
 
 def run(test_dir, model_file):
-    prediction_window_size = 30
+    prediction_window_size = 18
     feature_window_size = 10
     min_confidence = 0.8
 
@@ -74,6 +74,6 @@ def run(test_dir, model_file):
         print(result)
 
 if __name__ == "__main__":
-    TEST_DIR = "test"
+    TEST_DIR = "data"
     MODEL_FILE = "rf.joblib"
     run(TEST_DIR, MODEL_FILE)
