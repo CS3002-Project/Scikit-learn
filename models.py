@@ -120,7 +120,7 @@ def extract_average_moving_rms(channel_features):
     return average_moving_rms
 
 
-def feature_extraction(window_rows):
+def feature_extraction(window_rows, important_idxs=None):
     feature_extracted_row = []
     feature_extracted_row.extend(window_rows[0])
     feature_extracted_row.extend(window_rows.mean(0))
@@ -131,8 +131,9 @@ def feature_extraction(window_rows):
     feature_extracted_row.extend(extract_poly_fit(window_rows))
     feature_extracted_row.extend(extract_skewness(window_rows))
     feature_extracted_row.extend(extract_average_amplitude_change(window_rows))
-
-    return feature_extracted_row
+    important_features = [feature_extracted_row[i] for i in important_idxs] if important_idxs is not \
+        None else feature_extracted_row
+    return important_features
 
 
 def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, feature_window_size, pad_size=1):

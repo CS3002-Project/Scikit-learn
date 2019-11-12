@@ -11,6 +11,10 @@ from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
 
+important_idxs = None
+# important_idxs = [int(x) for x in utils.load_text_as_list("feat_imp_idx.txt")]
+
+
 reverse_label_map = {
         0: "bunny",
         1: "cowboy",
