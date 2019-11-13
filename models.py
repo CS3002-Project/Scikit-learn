@@ -72,7 +72,7 @@ def train_mlp(X_train, y_train, X_dev, y_dev, limit):
     scaled_X_train = scaler.fit_transform(np.array(X_train, dtype=np.float16))
     scaled_X_dev = scaler.transform(np.array(X_dev, dtype=np.float16))
     
-    mlp = MLPClassifier(solver='lbfgs', alpha=1e-5,
+    mlp = MLPClassifier(solver='adam', batch_size=128, alpha=1e-5,
                         hidden_layer_sizes=(num_hidden_1, num_hidden_2), random_state=1)
     mlp.fit(scaled_X_train, y_train)
     y_pred_mlp = mlp.predict(scaled_X_dev)
