@@ -256,15 +256,15 @@ def parse_args():
 if __name__ == "__main__":
     p_args = parse_args()
     config = {
-        "prediction_window_size": 32,
+        "prediction_window_size": 24,
         "feature_window_size": 10,
         "min_confidence": 0.85,
         "model_type": "rf",
         "min_consecutive_agrees": 2,
         "test_size": 0.9,
-        "pad_size": 3,
+        "pad_size": 4,
         "mlp": True,
-        "mlp_limit": 10000
+        "mlp_limit": 50000
     }
     if p_args.simulate:
         test_files = utils.load_text_as_list("test_files.txt")
