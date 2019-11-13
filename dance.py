@@ -185,7 +185,7 @@ def test(trained_rf, trained_mlp, test_files, config):
     feature_window_size = config["feature_window_size"]
     min_confidence = config["min_confidence"]
     pad_size = config["pad_size"]
-    max_consecutive_agrees = config["max_consecutive_agrees"]
+    min_consecutive_agrees = config["min_consecutive_agrees"]
     accuracies = []
     first_corrects = []
     for file_path in test_files:
@@ -218,10 +218,11 @@ def test(trained_rf, trained_mlp, test_files, config):
                     confidences.append(mlp_confidence)
                 for _ in range(pad_size):
                     input_buffer.popleft()
-                if current_prediction is None or(len(set(predictions)) == 1 and np.min(confidences) > min_confidence):
-                    consecutive_agrees += 1
+                if len(set(predictions)) == 1 and np.min(confidences) > min_confidence:  # prediction is taken
                     prediction = predictions[0]
-                    if consecutive_agrees == max_consecutive_agrees:
+                    if consecutive_agrees == 0 or prediction == current_prediction:
+                        consecutive_agrees += 1
+                    if consecutive_agrees >= min_consecutive_agrees:
                         predicted_move = reverse_label_map[prediction]
                         result = evaluate(predicted_move, file_path)
                         correct += result
@@ -230,11 +231,10 @@ def test(trained_rf, trained_mlp, test_files, config):
                         elif first_correct is None:
                             print("First prediction is wrong")
                         first_correct = result
-                        consecutive_agrees = 0
                         num_prediction += 1
-                else:
-                    consecutive_agrees = 0
-                current_prediction = prediction
+                    else:
+                        consecutive_agrees = 1
+                    current_prediction = prediction
         if num_prediction == 0.:
             accuracies.append(0.)
         else:
@@ -260,11 +260,11 @@ if __name__ == "__main__":
         "feature_window_size": 10,
         "min_confidence": 0.85,
         "model_type": "rf",
-        "max_consecutive_agrees": 2,
+        "min_consecutive_agrees": 2,
         "test_size": 0.9,
         "pad_size": 3,
         "mlp": True,
-        "mlp_limit": 3000
+        "mlp_limit": 10000
     }
     if p_args.simulate:
         test_files = utils.load_text_as_list("test_files.txt")
