@@ -39,7 +39,7 @@ def train_svm(X_train, y_train, X_dev, y_dev):
 
 def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name):
     print("Train random forest")
-    rfc = RandomForestClassifier(warm_start=True, n_estimators=10)
+    rfc = RandomForestClassifier(warm_start=True, n_estimators=100)
     num_train_batches = len(x_train_batches)
     feature_importance_batches = []
     for i in tqdm(range(num_train_batches), desc="Training batched RF"):  # 10 passes through the data
@@ -47,7 +47,7 @@ def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batc
         y = y_train_batches[i]
         rfc.fit(X, y)
         feature_importance_batches.append(rfc.feature_importances_)
-        rfc.n_estimators += 1
+        # rfc.n_estimators += 1
     num_dev_batches = len(x_dev_batches)
 
     y_pred_rfc_batches = []
@@ -68,8 +68,16 @@ def train_mlp(X_train, y_train, X_dev, y_dev, limit):
     X_train, y_train, X_dev, y_dev = X_train[:limit], y_train[:limit], X_dev[:limit], y_dev[:limit]
     num_hidden_1 = 500
     num_hidden_2 = 100
+    scaler_batch_size = 1024
+    train_size = len(X_train)
     scaler = MinMaxScaler()
-    scaled_X_train = scaler.fit_transform(np.array(X_train, dtype=np.float16))
+    scaled_X_train = []
+    i = 0
+    while i < train_size:
+        scaler.partial_fit(X_train[i: i + scaler_batch_size])
+        scaled_X_train.extend(scaler.transform(X_train[i: i + scaler_batch_size]))
+        i += scaler_batch_size
+    # scaled_X_train = scaler.fit_transform(np.array(X_train, dtype=np.float16))
     scaled_X_dev = scaler.transform(np.array(X_dev, dtype=np.float16))
     
     mlp = MLPClassifier(solver='adam', batch_size=128, alpha=1e-5,
@@ -176,6 +184,7 @@ def eval_model_batches(model, y_test_batches, y_pred_rfc_batches, num_test_batch
         "accuracy": np.mean(accuracies),
         "f1": np.mean(f1_scores)
     }
+    print(eval_results)
     with open("{}_eval.json".format(model), "w") as f:
         json.dump(eval_results, f)
 
