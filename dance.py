@@ -14,7 +14,7 @@ import joblib
 
 
 important_idxs = None
-# important_idxs = [int(x) for x in utils.load_text_as_list("feat_imp_idx.txt")]
+#important_idxs = [int(x) for x in utils.load_text_as_list("feat_imp_idx.txt")]
 
 
 reverse_label_map = {
@@ -37,6 +37,7 @@ def evaluate(predicted_move, input_file):
     if predicted_move not in input_file:
         for k in reverse_label_map.values():
             if k in input_file:
+                print("mispredicted move:{} ".format(predicted_move))
                 return 0
     return 1
 
@@ -187,6 +188,7 @@ def test(trained_rf, trained_mlp, test_files, config):
     min_confidence = config["min_confidence"]
     pad_size = config["pad_size"]
     min_consecutive_agrees = config["min_consecutive_agrees"]
+    lower_min_confidence = config["lower_min_confidence"]
     accuracies = []
     first_corrects = []
     num_correct = 0
@@ -195,7 +197,6 @@ def test(trained_rf, trained_mlp, test_files, config):
         print("Reading file {}".format(file_path))
         test_data = utils.read_csv(file_path, True)
         current_prediction = None
-        consecutive_agrees = 0
         input_buffer = deque()
         num_prediction, correct = 0., 0.
         first_correct = None
@@ -205,8 +206,7 @@ def test(trained_rf, trained_mlp, test_files, config):
                 window_data = np.array(reading_buffer)
                 feature_vector = np.array(feature_extraction(window_data))
                 input_buffer.append(feature_vector)
-                reading_buffer.popleft()
-                #reading_buffer.clear()
+                reading_buffer.clear()
             if len(input_buffer) == prediction_window_size:
                 input_feature_vector = np.concatenate(input_buffer)
                 prediction_confidences = trained_rf.predict_proba(input_feature_vector.reshape(1, -1))[0]
@@ -220,26 +220,38 @@ def test(trained_rf, trained_mlp, test_files, config):
                     predictions.append(mlp_prediction)
                     confidences.append(mlp_confidence)
                 for _ in range(pad_size):
-                    input_buffer.popleft()
-                    #input_buffer.clear()
+                    input_buffer.clear()
+                print("Confidence:{} Move:{}".format(np.min(confidences), reverse_label_map[predictions[0]]))
+
                 if len(set(predictions)) == 1 and np.min(confidences) > min_confidence:  # prediction is taken
                     prediction = predictions[0]
-                    if consecutive_agrees == 0 or prediction == current_prediction:
-                        consecutive_agrees += 1
-                    if consecutive_agrees >= min_consecutive_agrees:
+                    predicted_move = reverse_label_map[prediction]
+                    result = evaluate(predicted_move, file_path)
+                    correct += result
+                    if first_correct is None and result == 1:
+                        print("First prediction is correct  from high threshold")
+                        num_correct = num_correct + 1
+                    elif first_correct is None:
+                        print("First prediction is wrong  from high threshold")
+                    first_correct = result
+                    num_prediction += 1
+
+                elif len(set(predictions)) == 1 and np.min(confidences) > lower_min_confidence:  # prediction is taken
+                    prediction = predictions[0]
+                    if prediction == current_prediction:
                         predicted_move = reverse_label_map[prediction]
                         result = evaluate(predicted_move, file_path)
                         correct += result
                         if first_correct is None and result == 1:
-                            print("First prediction is correct")
+                            print("First prediction is correct from low threshold")
                             num_correct = num_correct + 1
                         elif first_correct is None:
-                            print("First prediction is wrong")
+                            print("First prediction is wrong  from low threshold")
                         first_correct = result
                         num_prediction += 1
-                    else:
-                        consecutive_agrees = 1
+
                     current_prediction = prediction
+
         if num_prediction == 0.:
             accuracies.append(0.)
         else:
@@ -264,18 +276,19 @@ if __name__ == "__main__":
     config = {
         "prediction_window_size": 24,
         "feature_window_size": 10,
-        "min_confidence": 0.70,
+        "min_confidence": 0.65,
+        "lower_min_confidence": 0.30,
         "model_type": "rf",
         "min_consecutive_agrees": 1,
         "test_size": 0.1,
         "pad_size": 5,
-        "mlp": False,
+        "mlp": True,
         "mlp_limit": 50000
     }
     if p_args.simulate:
         test_files = utils.load_text_as_list("test_files.txt")
         trained_rf = joblib.load("rf.joblib")
         trained_mlp = joblib.load("mlp.joblib")
-        test(trained_rf, None, test_files, config)
+        test(trained_rf, trained_mlp, test_files, config)
     else:
         main(config)

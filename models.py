@@ -13,6 +13,9 @@ from collections import deque
 from sklearn.preprocessing import MinMaxScaler
 
 
+SCALE = 1000
+
+
 def read_data(input_path):
     X, y = [], []
 
@@ -75,10 +78,11 @@ def train_mlp(X_train, y_train, X_dev, y_dev, limit):
     i = 0
     while i < train_size:
         scaler.partial_fit(X_train[i: i + scaler_batch_size])
-        scaled_X_train.extend(scaler.transform(X_train[i: i + scaler_batch_size]))
+        scaled_x_train_single = scaler.transform(X_train[i: i + scaler_batch_size])
+        scaled_X_train.extend((scaled_x_train_single * SCALE).astype(np.int))
         i += scaler_batch_size
     # scaled_X_train = scaler.fit_transform(np.array(X_train, dtype=np.float16))
-    scaled_X_dev = scaler.transform(np.array(X_dev, dtype=np.float16))
+    scaled_X_dev = (scaler.transform(np.array(X_dev, dtype=np.float16)) * SCALE).astype(np.int)
     
     mlp = MLPClassifier(solver='adam', batch_size=128, alpha=1e-5,
                         hidden_layer_sizes=(num_hidden_1, num_hidden_2), random_state=1)

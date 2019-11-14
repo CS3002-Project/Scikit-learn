@@ -11,3 +11,7 @@ extracted/
 *.dot
 *.png
 *.log
+*.joblib
+*.rar
+*.csv
+cache/
