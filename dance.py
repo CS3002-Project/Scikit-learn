@@ -258,12 +258,12 @@ if __name__ == "__main__":
     config = {
         "prediction_window_size": 24,
         "feature_window_size": 10,
-        "min_confidence": 0.85,
+        "min_confidence": 0.6,
         "model_type": "rf",
-        "min_consecutive_agrees": 2,
-        "test_size": 0.9,
-        "pad_size": 4,
-        "mlp": True,
+        "min_consecutive_agrees": 1,
+        "test_size": 0.1,
+        "pad_size": 5,
+        "mlp": False,
         "mlp_limit": 50000
     }
     if p_args.simulate:

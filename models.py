@@ -117,7 +117,7 @@ def extract_average_moving_rms(channel_features):
         raw_values = mean_squared_error(curr_reading,
                                         next_reading, multioutput='raw_values')
         moving_rms.append(raw_values)
-    average_moving_rms = np.mean(moving_rms, axis=1)
+    average_moving_rms = np.mean(moving_rms, axis=0)
     return average_moving_rms
 
 
