@@ -14,7 +14,7 @@ import joblib
 
 
 important_idxs = None
-# important_idxs = [int(x) for x in utils.load_text_as_list("feat_imp_idx.txt")]
+#important_idxs = [int(x) for x in utils.load_text_as_list("feat_imp_idx.txt")]
 
 
 reverse_label_map = {
@@ -225,7 +225,7 @@ def test(trained_rf, trained_mlp, test_files, config):
                     #input_buffer.popleft()
                     input_buffer.clear()
                 #print(predictions)
-                #print("Confidence:{} Move:{}".format(np.min(confidences), reverse_label_map[predictions[0]]))
+                print("Confidence:{} Move:{}".format(np.min(confidences), reverse_label_map[predictions[0]]))
 
                 if len(set(predictions)) == 1 and np.min(confidences) > min_confidence:  # prediction is taken
                     prediction = predictions[0]
@@ -302,7 +302,7 @@ if __name__ == "__main__":
     config = {
         "prediction_window_size": 24,
         "feature_window_size": 10,
-        "min_confidence": 0.8,
+        "min_confidence": 0.65,
         "lower_min_confidence": 0.30,
         "model_type": "rf",
         "min_consecutive_agrees": 1,
