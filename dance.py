@@ -151,7 +151,7 @@ def preprocess_data(train_files, config):
 
 def main(config):
     num_iters = 1
-    batch_size = 1048
+    batch_size = 4096
     data_dir = "data"
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
     all_iter_test_accuracy, all_iter_first_correct = [], []
@@ -274,14 +274,14 @@ def parse_args():
 if __name__ == "__main__":
     p_args = parse_args()
     config = {
-        "prediction_window_size": 24,
+        "prediction_window_size": 2,
         "feature_window_size": 10,
         "min_confidence": 0.65,
         "lower_min_confidence": 0.30,
         "model_type": "rf",
         "min_consecutive_agrees": 1,
         "test_size": 0.1,
-        "pad_size": 5,
+        "pad_size": 2,
         "mlp": True,
         "mlp_limit": 50000
     }
