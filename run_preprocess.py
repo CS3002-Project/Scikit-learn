@@ -15,7 +15,8 @@ NAME_MAP = {
     "james": 6,
     "chicken": 7,
     "movingsalute": 8,
-    "whip": 9
+    "whip": 9,
+    "logout": 10,
     # "idle": 99,
 }
 

@@ -17,6 +17,7 @@ reverse_label_map = {
         7: "chicken",
         8: "movingsalute",
         9: "whip",
+        10: "logout",
     # 99: "idle",
 }
 
