@@ -189,6 +189,7 @@ def test(trained_rf, trained_mlp, test_files, config):
     min_consecutive_agrees = config["min_consecutive_agrees"]
     accuracies = []
     first_corrects = []
+    num_correct = 0
     for file_path in test_files:
         reading_buffer = deque()
         print("Reading file {}".format(file_path))
@@ -205,6 +206,7 @@ def test(trained_rf, trained_mlp, test_files, config):
                 feature_vector = np.array(feature_extraction(window_data))
                 input_buffer.append(feature_vector)
                 reading_buffer.popleft()
+                #reading_buffer.clear()
             if len(input_buffer) == prediction_window_size:
                 input_feature_vector = np.concatenate(input_buffer)
                 prediction_confidences = trained_rf.predict_proba(input_feature_vector.reshape(1, -1))[0]
@@ -219,6 +221,7 @@ def test(trained_rf, trained_mlp, test_files, config):
                     confidences.append(mlp_confidence)
                 for _ in range(pad_size):
                     input_buffer.popleft()
+                    #input_buffer.clear()
                 if len(set(predictions)) == 1 and np.min(confidences) > min_confidence:  # prediction is taken
                     prediction = predictions[0]
                     if consecutive_agrees == 0 or prediction == current_prediction:
@@ -229,6 +232,7 @@ def test(trained_rf, trained_mlp, test_files, config):
                         correct += result
                         if first_correct is None and result == 1:
                             print("First prediction is correct")
+                            num_correct = num_correct + 1
                         elif first_correct is None:
                             print("First prediction is wrong")
                         first_correct = result
@@ -245,6 +249,7 @@ def test(trained_rf, trained_mlp, test_files, config):
             first_corrects.append(0)
         else:
             first_corrects.append(first_correct)
+    print("Number of correct moves: {}".format(num_correct))
     return np.mean(accuracies), np.mean(first_corrects)
 
 
@@ -259,7 +264,7 @@ if __name__ == "__main__":
     config = {
         "prediction_window_size": 24,
         "feature_window_size": 10,
-        "min_confidence": 0.6,
+        "min_confidence": 0.70,
         "model_type": "rf",
         "min_consecutive_agrees": 1,
         "test_size": 0.1,
