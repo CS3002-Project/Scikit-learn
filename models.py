@@ -12,7 +12,7 @@ from sklearn.metrics import mean_squared_error
 from collections import deque
 from sklearn.preprocessing import MinMaxScaler
 
-
+SCALE = 1000
 def read_data(input_path):
     X, y = [], []
 
@@ -39,7 +39,7 @@ def train_svm(X_train, y_train, X_dev, y_dev):
 
 def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name):
     print("Train random forest")
-    rfc = RandomForestClassifier(warm_start=True, n_estimators=50)
+    rfc = RandomForestClassifier(warm_start=True, n_estimators=10)
     num_train_batches = len(x_train_batches)
     feature_importance_batches = []
     for i in tqdm(range(num_train_batches), desc="Training batched RF"):  # 10 passes through the data
@@ -68,7 +68,7 @@ def train_mlp(X_train, y_train, X_dev, y_dev, limit):
     X_train, y_train, X_dev, y_dev = X_train[:limit], y_train[:limit], X_dev[:limit], y_dev[:limit]
     num_hidden_1 = 500
     num_hidden_2 = 100
-    scaler_batch_size = 1024
+    scaler_batch_size = 128
     train_size = len(X_train)
     scaler = MinMaxScaler()
     scaled_X_train = []
@@ -76,18 +76,19 @@ def train_mlp(X_train, y_train, X_dev, y_dev, limit):
     while i < train_size:
         scaler.partial_fit(X_train[i: i + scaler_batch_size])
         scaled_x_train_single = scaler.transform(X_train[i: i + scaler_batch_size])
-        scaled_X_train.extend(scaled_x_train_single)
+        scaled_X_train.extend((scaled_x_train_single * SCALE).astype(np.int))
         i += scaler_batch_size
     # scaled_X_train = scaler.fit_transform(np.array(X_train, dtype=np.float16))
-    scaled_X_dev = scaler.transform(np.array(X_dev, dtype=np.float16))
-    
+    scaled_X_dev = (scaler.transform(np.array(X_dev, dtype=np.float16)) * SCALE).astype(np.int)
+
     mlp = MLPClassifier(solver='adam', batch_size=128, alpha=1e-5,
                         hidden_layer_sizes=(num_hidden_1, num_hidden_2), random_state=1)
     mlp.fit(scaled_X_train, y_train)
-    y_pred_mlp = mlp.predict(scaled_X_dev)
-    eval_model("mlp", y_dev, y_pred_mlp)
     dump(mlp, "mlp.joblib")
     dump(scaler, "mlp_scaler.joblib")
+    y_pred_mlp = mlp.predict(scaled_X_dev)
+    eval_model("mlp", y_dev, y_pred_mlp)
+
 
 
 # Returns an appended list of feature_extracted values
@@ -131,9 +132,9 @@ def feature_extraction(window_rows, important_idxs=None):
     feature_extracted_row.extend(window_rows.min(0))
     feature_extracted_row.extend(window_rows.max(0))
     feature_extracted_row.extend(window_rows.std(0))
-    feature_extracted_row.extend(extract_poly_fit(window_rows))
-    feature_extracted_row.extend(extract_skewness(window_rows))
-    feature_extracted_row.extend(extract_average_amplitude_change(window_rows))
+    # feature_extracted_row.extend(extract_poly_fit(window_rows))
+    # feature_extracted_row.extend(extract_skewness(window_rows))
+    # feature_extracted_row.extend(extract_average_amplitude_change(window_rows))
     important_features = [feature_extracted_row[i] for i in important_idxs] if important_idxs is not \
         None else feature_extracted_row
     return important_features
@@ -153,8 +154,11 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
             X_window_train.append(np.concatenate(np.array(input_buffer).astype(np.float16)))
             y_window_train.append(label_buffer[-1])
             for _ in range(pad_size):
-                input_buffer.popleft()
-                label_buffer.popleft()
+                if len(input_buffer) > 0 and len(label_buffer) > 0:
+                    input_buffer.popleft()
+                    label_buffer.popleft()
+                else:
+                    break
 
     X_window_dev, y_window_dev = [], []
     input_buffer, label_buffer = deque(), deque()
@@ -167,9 +171,11 @@ def build_window_data(X_train, y_train, X_dev, y_dev, prediction_window_size, fe
         if len(input_buffer) == prediction_window_size:  # record the features when the prediction buffer is full
             X_window_dev.append(np.concatenate(np.array(input_buffer)))
             y_window_dev.append(label_buffer[-1])
-            for _ in range(pad_size):
+            if len(input_buffer) > 0 and len(label_buffer) > 0:
                 input_buffer.popleft()
                 label_buffer.popleft()
+            else:
+                break
     return X_window_train, y_window_train, X_window_dev, y_window_dev
 
 

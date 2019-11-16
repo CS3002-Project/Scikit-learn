@@ -96,7 +96,8 @@ def split_train_test(data_dir, num_iterations):
             test_files.append(dance_file)
         for move, people_files in move_file_lookup.items():
             for people, files in people_files.items():
-                train_files.extend([f for f in files if f not in test_files])
+                # Change this back please
+                train_files.extend([f for f in files[:1] if f not in test_files])
         iter_train_files.append(train_files)
         iter_test_files.append(test_files)
 
@@ -131,7 +132,7 @@ def prepare_data(x_train_single, y_train_single, x_dev_single, y_dev_single, con
 def preprocess_data(train_files, config):
     x_train, y_train, x_dev, y_dev = [], [], [], []
     for file in tqdm(train_files, desc="preprocessing_data"):
-        cache_file_path = file.replace("data/", "cache/").replace(".csv", "_fw{}_pw{}_pad{}_ts{}_cache.pickle".format(
+        cache_file_path = file.replace("data", "cache").replace(".csv", "_fw{}_pw{}_pad{}_ts{}_cache.pickle".format(
             config["feature_window_size"], config["prediction_window_size"], config["pad_size"], config["test_size"]))
         if os.path.exists(cache_file_path):
             print("Load cache from {}".format(cache_file_path))
@@ -274,21 +275,21 @@ def parse_args():
 if __name__ == "__main__":
     p_args = parse_args()
     config = {
-        "prediction_window_size": 2,
-        "feature_window_size": 10,
+        "prediction_window_size": 5,
+        "feature_window_size": 20,
         "min_confidence": 0.65,
         "lower_min_confidence": 0.30,
         "model_type": "rf",
         "min_consecutive_agrees": 1,
         "test_size": 0.1,
-        "pad_size": 2,
-        "mlp": True,
-        "mlp_limit": 50000
+        "pad_size": 5,
+        "mlp": False,
+        "mlp_limit": 100000
     }
     if p_args.simulate:
         test_files = utils.load_text_as_list("test_files.txt")
         trained_rf = joblib.load("rf.joblib")
         trained_mlp = joblib.load("mlp.joblib")
-        test(trained_rf, trained_mlp, test_files, config)
+        test(trained_rf, None, test_files, config)
     else:
         main(config)
