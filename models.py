@@ -49,7 +49,7 @@ def train_svm(X_train, y_train, X_dev, y_dev):
         i += scaler_batch_size
 
     svm = SVC(gamma='auto', probability=True)
-    svm.fit(X_train, y_train)
+    svm.fit(scaled_X_train, y_train)
     dump(svm, "svm.joblib")
     dump(scaler, "svm_scaler.joblib")
     return svm, scaler

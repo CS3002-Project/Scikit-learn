@@ -161,7 +161,8 @@ def main(config):
         model_bench_marks = {
             model: {
                 "accuracies": [],
-                "prediction_times": []
+                "prediction_times": [],
+                "training_times": []
             } for model in model_names
         }
         print("Training and testing with limit {}".format(limit))
@@ -176,6 +177,7 @@ def main(config):
             x_train_batches, y_train_batches = divide_into_batches(x_train, y_train, batch_size)
             x_dev_batches, y_dev_batches = divide_into_batches(x_dev, y_dev, batch_size)
             for model_name in model_names:
+                start_train_time = time.time()
                 if model_name == "rf":
                     trained_model, scaler = train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches)
                 elif model_name == "mlp":
@@ -186,12 +188,16 @@ def main(config):
                     trained_model, scaler = train_svm(x_train, y_train, x_dev, y_dev)
                 else:
                     raise ValueError("Unsupported model {}".format(model_name))
+                train_time = time.time() - start_train_time
                 iter_accuracy, iter_prediction_time = test(trained_model, scaler, test_files, config)
                 model_bench_marks[model_name]["accuracies"].append(iter_accuracy)
                 model_bench_marks[model_name]["prediction_times"].append(iter_prediction_time)
+                model_bench_marks[model_name]["training_times"].append(train_time)
+                print("Total training time {}".format(train_time))
         for model, results in model_bench_marks.items():
             model_bench_marks[model]["accuracies"] = np.mean(model_bench_marks[model]["accuracies"])
             model_bench_marks[model]["prediction_times"] = np.mean(model_bench_marks[model]["prediction_times"])
+            model_bench_marks[model]["training_times"] = np.mean(model_bench_marks[model]["training_times"])
         with open("benchmark_{}.json".format(limit), "w") as f:
             json.dump(model_bench_marks, f)
 
@@ -272,7 +278,7 @@ if __name__ == "__main__":
         "prediction_window_size": 24,
         "feature_window_size": 10,
         "min_confidence": 0.5,
-        "lower_min_confidence": 0.1,
+        "lower_min_confidence": 0.0,
         "model_type": "rf",
         "min_consecutive_agrees": 1,
         "test_size": 0.1,
