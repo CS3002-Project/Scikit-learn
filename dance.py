@@ -1,11 +1,11 @@
 import numpy as np
 import os
 from run_preprocess import label_map, NAME_MAP
-from models import build_window_data, train_mlp, feature_extraction, train_rf_batches
+from models import build_window_data, train_mlp, feature_extraction, train_rf_batches, train_knn, train_svm
 import utils
 import copy
 import random
-from collections import deque
+import time
 import json
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
@@ -154,52 +154,60 @@ def main(config):
     num_iters = 1
     batch_size = 4096
     data_dir = "data"
+    data_limits = [0.2, 0.4, 0.6, 0.8, 1.0]
     iter_train_files, iter_test_files = split_train_test(data_dir, num_iters)
-    all_iter_test_accuracy, all_iter_first_correct = [], []
-    # model_name = "rf".format(config["model_type"],
-    #                                      config["prediction_window_size"],
-    #                                      config["feature_window_size"],
-    #                                      config["min_confidence"],
-    #                                      config["max_consecutive_agrees"])
-    model_name = "rf"
-    for i in range(num_iters):
-        train_files, test_files = iter_train_files[i], iter_test_files[i]
-        utils.save_list_as_text(test_files, "test_files.txt")
-        x_train, y_train, x_dev, y_dev = preprocess_data(train_files, config)
-        x_train, _, y_train, _ = train_test_split(x_train, y_train, test_size=0.0001)
-        x_train_batches, y_train_batches = divide_into_batches(x_train, y_train, batch_size)
-        x_dev_batches, y_dev_batches = divide_into_batches(x_dev, y_dev, batch_size)
-        trained_rf = train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name)
-        trained_mlp = train_mlp(x_train, y_train, x_dev, y_dev, config["mlp_limit"]) if config["mlp"] else None
-        iter_test_accuracy, iter_first_correct = test(trained_rf, trained_mlp, test_files, config)
-        all_iter_test_accuracy.append(iter_test_accuracy)
-        all_iter_first_correct.append(iter_first_correct)
-    final_accuracy = np.mean(all_iter_test_accuracy)
-    final_first_correct = np.mean(all_iter_first_correct)
-    with open("{}_eval.json".format(model_name), "w") as f:
-        json.dump({
-            "first_correct": final_first_correct,
-            "accuracy": final_accuracy
-        }, f)
+    model_names = ["rf", "mlp", "knn", "svm"]
+    for limit in data_limits:
+        model_bench_marks = {
+            model: {
+                "accuracies": [],
+                "prediction_times": []
+            } for model in model_names
+        }
+        print("Training and testing with limit {}".format(limit))
+        for i in range(num_iters):
+            train_files, test_files = iter_train_files[i], iter_test_files[i]
+            utils.save_list_as_text(test_files, "test_files.txt")
+            x_train, y_train, x_dev, y_dev = preprocess_data(train_files, config)
+            x_train, _, y_train, _ = train_test_split(x_train, y_train, test_size=0.0001)
+            limited_train_size, limited_test_size = int(len(x_train) * limit), int(len(x_dev) * limit)
+            x_train, y_train = x_train[:limited_train_size], y_train[:limited_train_size]
+            x_dev, y_dev = x_dev[:limited_test_size], y_dev[:limited_test_size]
+            x_train_batches, y_train_batches = divide_into_batches(x_train, y_train, batch_size)
+            x_dev_batches, y_dev_batches = divide_into_batches(x_dev, y_dev, batch_size)
+            for model_name in model_names:
+                if model_name == "rf":
+                    trained_model, scaler = train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches)
+                elif model_name == "mlp":
+                    trained_model, scaler = train_mlp(x_train, y_train, x_dev, y_dev)
+                elif model_name == "knn":
+                    trained_model, scaler = train_knn(x_train, y_train, x_dev, y_dev)
+                elif model_name == "svm":
+                    trained_model, scaler = train_svm(x_train, y_train, x_dev, y_dev)
+                else:
+                    raise ValueError("Unsupported model {}".format(model_name))
+                iter_accuracy, iter_prediction_time = test(trained_model, scaler, test_files, config)
+                model_bench_marks[model_name]["accuracies"].append(iter_accuracy)
+                model_bench_marks[model_name]["prediction_times"].append(iter_prediction_time)
+        for model, results in model_bench_marks.items():
+            model_bench_marks[model]["accuracies"] = np.mean(model_bench_marks[model]["accuracies"])
+            model_bench_marks[model]["prediction_times"] = np.mean(model_bench_marks[model]["prediction_times"])
+        with open("benchmark_{}.json".format(limit), "w") as f:
+            json.dump(model_bench_marks, f)
 
 
-def test(trained_rf, trained_mlp, test_files, config):
+def test(trained_model, scaler, test_files, config):
     prediction_window_size = config["prediction_window_size"]
     feature_window_size = config["feature_window_size"]
     min_confidence = config["min_confidence"]
     pad_size = config["pad_size"]
-    min_consecutive_agrees = config["min_consecutive_agrees"]
     lower_min_confidence = config["lower_min_confidence"]
-    accuracies = []
-    first_corrects = []
-    num_correct = 0
+    num_correct, num_predictions, prediction_sec = 0, 0, 0
     for file_path in test_files:
-        reading_buffer = deque()
+        reading_buffer, input_buffer = [], []
         print("Reading file {}".format(file_path))
         test_data = utils.read_csv(file_path, True)
         current_prediction = None
-        input_buffer = deque()
-        num_prediction, correct = 0., 0.
         first_correct = None
         for row in test_data:
             reading_buffer.append(np.array([float(reading) for reading in row[3:]]))
@@ -207,63 +215,49 @@ def test(trained_rf, trained_mlp, test_files, config):
                 window_data = np.array(reading_buffer)
                 feature_vector = np.array(feature_extraction(window_data))
                 input_buffer.append(feature_vector)
-                reading_buffer.clear()
+                reading_buffer = reading_buffer[pad_size:]
             if len(input_buffer) == prediction_window_size:
                 input_feature_vector = np.concatenate(input_buffer)
-                prediction_confidences = trained_rf.predict_proba(input_feature_vector.reshape(1, -1))[0]
+                before_prediction = time.time()
+                if scaler is not None:
+                    input_vector = scaler.transform(input_feature_vector.reshape(1, -1))
+                else:
+                    input_vector = input_feature_vector.reshape(1, -1)
+                prediction_confidences = trained_model.predict_proba(input_vector)[0]
+                prediction_sec += time.time() - before_prediction
+                num_predictions += 1
                 prediction = np.argmax(prediction_confidences)
                 confidence = prediction_confidences[prediction]
-                predictions, confidences = [prediction], [confidence]
-                if trained_mlp is not None:
-                    mlp_prediction_confidences = trained_mlp.predict_proba(input_feature_vector.reshape(1, -1))[0]
-                    mlp_prediction = np.argmax(mlp_prediction_confidences)
-                    mlp_confidence = prediction_confidences[prediction]
-                    predictions.append(mlp_prediction)
-                    confidences.append(mlp_confidence)
-                for _ in range(pad_size):
-                    input_buffer.clear()
-                print("Confidence:{} Move:{}".format(np.min(confidences), reverse_label_map[predictions[0]]))
 
-                if len(set(predictions)) == 1 and np.min(confidences) > min_confidence:  # prediction is taken
-                    prediction = predictions[0]
+                if confidence > min_confidence:  # prediction is taken
                     predicted_move = reverse_label_map[prediction]
                     result = evaluate(predicted_move, file_path)
-                    correct += result
                     if first_correct is None and result == 1:
-                        print("First prediction is correct  from high threshold")
-                        num_correct = num_correct + 1
+                        print("First prediction is correct from high threshold")
+                        num_correct += 1
                     elif first_correct is None:
-                        print("First prediction is wrong  from high threshold")
-                    first_correct = result
-                    num_prediction += 1
+                        print("First prediction is wrong from high threshold")
+                    break
 
-                elif len(set(predictions)) == 1 and np.min(confidences) > lower_min_confidence:  # prediction is taken
-                    prediction = predictions[0]
+                elif confidence > lower_min_confidence:  # prediction is taken
                     if prediction == current_prediction:
                         predicted_move = reverse_label_map[prediction]
                         result = evaluate(predicted_move, file_path)
-                        correct += result
-                        if first_correct is None and result == 1:
+                        if result == 1:
                             print("First prediction is correct from low threshold")
-                            num_correct = num_correct + 1
-                        elif first_correct is None:
-                            print("First prediction is wrong  from low threshold")
-                        first_correct = result
-                        num_prediction += 1
+                            num_correct += 1
+                        else:
+                            print("First prediction is wrong from low threshold")
+                        break
 
                     current_prediction = prediction
+                input_buffer = []
 
-        if num_prediction == 0.:
-            accuracies.append(0.)
-        else:
-            accuracies.append(correct/num_prediction)
-        if first_correct is None:
-            print("No prediction was given")
-            first_corrects.append(0)
-        else:
-            first_corrects.append(first_correct)
-    print("Number of correct moves: {}".format(num_correct))
-    return np.mean(accuracies), np.mean(first_corrects)
+    accuracy = num_correct / len(test_files)
+    time_per_prediction = prediction_sec / num_predictions
+    print("Accuracy {}".format(accuracy))
+    print("Time per prediction {}".format(time_per_prediction))
+    return accuracy, time_per_prediction
 
 
 def parse_args():
@@ -275,10 +269,10 @@ def parse_args():
 if __name__ == "__main__":
     p_args = parse_args()
     config = {
-        "prediction_window_size": 5,
-        "feature_window_size": 20,
-        "min_confidence": 0.65,
-        "lower_min_confidence": 0.30,
+        "prediction_window_size": 24,
+        "feature_window_size": 10,
+        "min_confidence": 0.5,
+        "lower_min_confidence": 0.1,
         "model_type": "rf",
         "min_consecutive_agrees": 1,
         "test_size": 0.1,
@@ -290,6 +284,6 @@ if __name__ == "__main__":
         test_files = utils.load_text_as_list("test_files.txt")
         trained_rf = joblib.load("rf.joblib")
         trained_mlp = joblib.load("mlp.joblib")
-        test(trained_rf, None, test_files, config)
+        test(trained_rf, test_files, config)
     else:
         main(config)

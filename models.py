@@ -11,8 +11,12 @@ from joblib import dump
 from sklearn.metrics import mean_squared_error
 from collections import deque
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
 
 SCALE = 1000
+
+
 def read_data(input_path):
     X, y = [], []
 
@@ -28,16 +32,30 @@ def read_data(input_path):
 
 
 def train_svm(X_train, y_train, X_dev, y_dev):
+    print("Train svm")
+    scaler_batch_size = 128
+    train_size = len(X_train)
+    scaler = MinMaxScaler()
+    scaled_X_train = []
+    i = 0
+    while i < train_size:
+        scaler.partial_fit(X_train[i: i + scaler_batch_size])
+        i += scaler_batch_size
+
+    i = 0
+    while i < train_size:
+        scaled_x_train_single = scaler.transform(X_train[i: i + scaler_batch_size])
+        scaled_X_train.extend(scaled_x_train_single)
+        i += scaler_batch_size
+
     svm = SVC(gamma='auto')
     svm.fit(X_train, y_train)
-    y_pred_svm = svm.predict(X_dev)
-    eval_model("svm", y_dev, y_pred_svm)
-
-    with open("svm.p", "wb") as f:
-        pickle.dump(svm, f)
+    dump(svm, "svm.joblib")
+    dump(scaler, "svm_scaler.joblib")
+    return svm, scaler
 
 
-def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches, model_name):
+def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batches):
     print("Train random forest")
     rfc = RandomForestClassifier(warm_start=True, n_estimators=10)
     num_train_batches = len(x_train_batches)
@@ -55,17 +73,37 @@ def train_rf_batches(x_train_batches, y_train_batches, x_dev_batches, y_dev_batc
         X_dev = x_dev_batches[i]
         y_pred_rfc = rfc.predict(X_dev)
         y_pred_rfc_batches.append(y_pred_rfc)
-    eval_model_batches(model_name, y_dev_batches, y_pred_rfc_batches, num_dev_batches)
-    dump(rfc, "{}.joblib".format(model_name))
-    average_feature_importance = np.mean(feature_importance_batches, axis=0)
-    with open("{}_feat_imp.json".format(model_name), "w") as f:
-        json.dump(list([str(x) for x in average_feature_importance]), f)
-    return rfc
+    dump(rfc, "rf.joblib")
+    return rfc, None
 
 
-def train_mlp(X_train, y_train, X_dev, y_dev, limit):
+def train_knn(X_train, y_train, X_dev, y_dev):
+    print("Train k nearest neighbors")
+    scaler_batch_size = 128
+    n_neighbors = 5
+    train_size = len(X_train)
+    scaler = MinMaxScaler()
+    scaled_X_train = []
+    i = 0
+    while i < train_size:
+        scaler.partial_fit(X_train[i: i + scaler_batch_size])
+        i += scaler_batch_size
+
+    i = 0
+    while i < train_size:
+        scaled_x_train_single = scaler.transform(X_train[i: i + scaler_batch_size])
+        scaled_X_train.extend(scaled_x_train_single)
+        i += scaler_batch_size
+
+    knn = KNeighborsClassifier(n_neighbors=n_neighbors)
+    knn.fit(scaled_X_train, y_train)
+    dump(knn, "knn.joblib")
+    dump(scaler, "knn_scaler.joblib")
+    return knn, scaler
+
+
+def train_mlp(X_train, y_train, X_dev, y_dev):
     print("Train feed-forward neural network")
-    X_train, y_train, X_dev, y_dev = X_train[:limit], y_train[:limit], X_dev[:limit], y_dev[:limit]
     num_hidden_1 = 500
     num_hidden_2 = 100
     scaler_batch_size = 128
@@ -75,20 +113,20 @@ def train_mlp(X_train, y_train, X_dev, y_dev, limit):
     i = 0
     while i < train_size:
         scaler.partial_fit(X_train[i: i + scaler_batch_size])
-        scaled_x_train_single = scaler.transform(X_train[i: i + scaler_batch_size])
-        scaled_X_train.extend((scaled_x_train_single * SCALE).astype(np.int))
         i += scaler_batch_size
-    # scaled_X_train = scaler.fit_transform(np.array(X_train, dtype=np.float16))
-    scaled_X_dev = (scaler.transform(np.array(X_dev, dtype=np.float16)) * SCALE).astype(np.int)
+
+    i = 0
+    while i < train_size:
+        scaled_x_train_single = scaler.transform(X_train[i: i + scaler_batch_size])
+        scaled_X_train.extend(scaled_x_train_single)
+        i += scaler_batch_size
 
     mlp = MLPClassifier(solver='adam', batch_size=128, alpha=1e-5,
                         hidden_layer_sizes=(num_hidden_1, num_hidden_2), random_state=1)
     mlp.fit(scaled_X_train, y_train)
     dump(mlp, "mlp.joblib")
     dump(scaler, "mlp_scaler.joblib")
-    y_pred_mlp = mlp.predict(scaled_X_dev)
-    eval_model("mlp", y_dev, y_pred_mlp)
-
+    return mlp, scaler
 
 
 # Returns an appended list of feature_extracted values
