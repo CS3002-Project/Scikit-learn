@@ -48,7 +48,7 @@ def train_svm(X_train, y_train, X_dev, y_dev):
         scaled_X_train.extend(scaled_x_train_single)
         i += scaler_batch_size
 
-    svm = SVC(gamma='auto')
+    svm = SVC(gamma='auto', probability=True)
     svm.fit(X_train, y_train)
     dump(svm, "svm.joblib")
     dump(scaler, "svm_scaler.joblib")
