@@ -1,6 +1,19 @@
-CG3002 - Dance Recognition System (Group 03)
-=======================
-This repository is the implementation of the software for dance move recognition system in CG3002 project.
+# CG3002 Dance Dance Project August 2019 Group 3
+
+## Project Description
+The wearable system can detect and send predefined dance moves to a server. Our system operates on a 5V supply.
+
+
+## Comms
+The Comms secction consist of the Arduino code file 
+```
+cg3002_comms.ino 
+```
+written in C and the Raspberry Pi code file 
+```
+rpi_process_new_final.py 
+```
+written in Python. The Arduino code is responsible for getting the sensor data and sending in serially to the Raspberry Pi. The Raspberry Pi code receives the sensor data from the Arduino, loads machine learning model and makes prediction of a dance move which is sent to the server.
 
 ## System design
 
