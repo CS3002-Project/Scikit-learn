@@ -1,6 +1,5 @@
 import numpy as np
 import os
-from run_preprocess import label_map, NAME_MAP
 from models import build_window_data, train_mlp, feature_extraction, train_rf_batches, train_knn, train_svm
 import utils
 import copy
@@ -16,6 +15,28 @@ import joblib
 important_idxs = None
 #important_idxs = [int(x) for x in utils.load_text_as_list("feat_imp_idx.txt")]
 
+
+NAME_MAP = {
+    "bunny": 0,
+    "cowboy": 1,
+    "handmotor": 2,
+    "rocket": 3,
+    "tapshoulder": 4,
+    "hunchback": 5,
+    "james": 6,
+    "chicken": 7,
+    "movingsalute": 8,
+    "whip": 9,
+    "logout": 10,
+    # "idle": 99,
+}
+
+
+def label_map(file_name):
+    for k, v in NAME_MAP.items():
+        if k in file_name:
+            return v
+    return -1
 
 reverse_label_map = {
         0: "bunny",
