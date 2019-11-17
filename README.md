@@ -5,13 +5,11 @@ The wearable system can detect and send predefined dance moves to a server. Our 
 
 
 ## Comms
-The Comms secction consist of the Arduino code file 
+The Comms section consist of the Arduino code file 
+```cg3002_comms.ino 
 ```
-cg3002_comms.ino 
-```
-written in C and the Raspberry Pi code file 
-```
-rpi_process_new_final.py 
+written in C++ and the Raspberry Pi code file  
+```rpi_process_new_final.py 
 ```
 written in Python. The Arduino code is responsible for getting the sensor data and sending in serially to the Raspberry Pi. The Raspberry Pi code receives the sensor data from the Arduino, loads machine learning model and makes prediction of a dance move which is sent to the server.
 
